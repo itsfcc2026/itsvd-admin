@@ -4486,6 +4486,7 @@ function showUserPortal() {
 }
 
 async function showAdminPanel() {
+    // ── แสดง UI ทันที ─────────────────────────────────────────────────────────
     document.getElementById('login-overlay').classList.add('hidden');
     document.getElementById('view-user-portal').classList.remove('active');
     document.getElementById('view-admin-panel').classList.add('active');
@@ -4494,57 +4495,79 @@ async function showAdminPanel() {
     const _topbar = document.getElementById('admin-mobile-topbar');
     if (_topbar) _topbar.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
 
-    // โหลด staff จาก cache ก่อนแสดงชื่อได้เลย แล้ว sync background
+    // ── แสดงชื่อจาก cache ทันที (ไม่รอ server) ────────────────────────────────
+    const _loginUser = sessionStorage.getItem('it_current_user') || 'ADMIN';
     const _cachedStaff = JSON.parse(localStorage.getItem(STAFF_KEY) || '[]');
     if (_cachedStaff.length) adminStaff = _cachedStaff;
-    else await syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]);
-    // sync staff ใน background
-    syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]);
 
-    // แสดงชื่อผู้ login
-    const _loginUser = sessionStorage.getItem('it_current_user') || 'ADMIN';
     const _nameEl = document.getElementById('admin-display-name');
     if (_nameEl) {
         const _staffMatch = adminStaff.find(s => s.username === _loginUser);
         const _displayName = _staffMatch ? _staffMatch.name : _loginUser.toUpperCase();
         _nameEl.textContent = 'สวัสดี ' + _displayName;
     }
-    // sync ชื่อขึ้น topbar มือถือด้วย
     const _topbarName = document.getElementById('adm-topbar-name');
     if (_topbarName && _nameEl) _topbarName.textContent = _nameEl.textContent;
 
-    // ── ซ่อน/แสดงเมนู "ส่งออก Google Sheet" เฉพาะ ADMIN เท่านั้น ────────────
-    const gsMenuBtn   = document.getElementById('nav-google-sheet');
-    const gsMenuLabel = gsMenuBtn?.previousElementSibling; // sidebar-section-label "ข้อมูล"
+    // ── ซ่อน/แสดงเมนูตาม role ─────────────────────────────────────────────────
     const isSuperAdmin = _loginUser === ADMIN_USER || isAdminRole(adminStaff.find(s=>s.username===_loginUser)?.role);
+    const gsMenuBtn   = document.getElementById('nav-google-sheet');
+    const gsMenuLabel = gsMenuBtn?.previousElementSibling;
     if (gsMenuBtn)   gsMenuBtn.style.display   = isSuperAdmin ? '' : 'none';
     if (gsMenuLabel && gsMenuLabel.classList.contains('sidebar-section-label')) {
         gsMenuLabel.style.display = isSuperAdmin ? '' : 'none';
     }
-    // ── ซ่อนเมนู "จัดการ Users" เฉพาะ adminit เท่านั้น (it01-itXX ไม่เห็น) ───
     const usersMgmtBtn = document.getElementById('nav-users-mgmt');
     if (usersMgmtBtn) usersMgmtBtn.style.display = (_loginUser === ADMIN_USER) ? '' : 'none';
-    // ── แสดงปุ่มเปลี่ยนรหัสผ่านของตัวเองเฉพาะ superadmin ─────────────────
     const ownPassBtn = document.getElementById('btn-change-own-pass');
     if (ownPassBtn) ownPassBtn.style.display = isSuperAdmin ? 'flex' : 'none';
-    // ─────────────────────────────────────────────────────────────────────────
 
     currentLang = 'th';
     localStorage.setItem('it_portal_lang', 'th');
     const userSel = document.getElementById('lang-selector');
     if (userSel) userSel.value = 'th';
     updateAllI18n();
+
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
 
-    // บนมือถือ → ข้ามหน้า dashboard ไปหน้า Ticket โดยตรง
     const isMobile = window.innerWidth <= 768;
     const defaultSection = isMobile ? 'all-tickets' : 'dashboard';
-    document.getElementById(`section-${defaultSection}`).classList.add('active');
+    document.getElementById(`section-${defaultSection}`)?.classList.add('active');
     const defaultNavQuery = isMobile ? '.admin-nav-item[onclick*="all-tickets"]' : '.admin-nav-item[onclick*="dashboard"]';
     document.querySelector(defaultNavQuery)?.classList.add('active');
-    adminRefreshData();
+
+    // ── render จาก cache ทันที ────────────────────────────────────────────────
+    const _cachedTickets = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
+    const _deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+    const _filtered = _deletedIds.length ? _cachedTickets.filter(t => !_deletedIds.includes(t.id)) : _cachedTickets;
+    if (_filtered.length) {
+        adminTickets = _filtered;
+        updateAdminStats();
+        adminRenderDashboard();
+        adminRenderAllTickets();
+        renderSLAWidget();
+        renderARTWidget();
+        renderFCRWidget();
+        renderRIRWidget();
+        renderP1Widget();
+        renderUSSWidget();
+    }
     lucideReinit();
+
+    // ── sync จาก server ใน background ─────────────────────────────────────────
+    setTimeout(() => {
+        adminRefreshData().catch(() => {});
+        syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]).then(staff => {
+            adminStaff = staff;
+            // อัปเดตชื่อถ้าเพิ่งโหลดจาก server ได้
+            if (_nameEl) {
+                const _m = adminStaff.find(s => s.username === _loginUser);
+                if (_m) _nameEl.textContent = 'สวัสดี ' + _m.name;
+                if (_topbarName) _topbarName.textContent = _nameEl.textContent;
+            }
+        }).catch(() => {});
+    }, 0);
 }
 
 // เปิด login overlay แล้วแสดงเฉพาะหน้า Admin Login
@@ -4614,8 +4637,8 @@ function doLogin() {
         return;
     }
 
-    // sync passwords + staff จาก server ก่อน แล้วค่อยตรวจ
-    Promise.all([syncPasswords(), syncStaff(adminStaff)]).then(() => {
+    // ตรวจ password จาก cache ทันที ไม่รอ server
+    function _tryLogin() {
         const effectiveAdminPass = getEffectivePassword(ADMIN_USER) || ADMIN_PASS;
 
         if (u === ADMIN_USER && p === effectiveAdminPass) {
@@ -4623,7 +4646,9 @@ function doLogin() {
             sessionStorage.setItem(ADMIN_SESSION_KEY, 'active');
             sessionStorage.setItem('it_current_user', 'adminit');
             showAdminPanel();
-            return;
+            // sync server ใน background
+            Promise.all([syncPasswords(), syncStaff(adminStaff)]).catch(() => {});
+            return true;
         }
 
         const matchedAcc = STAFF_ACCOUNTS.find(acc => {
@@ -4632,37 +4657,44 @@ function doLogin() {
         });
 
         if (matchedAcc) {
-            // ตรวจว่า username นี้ถูกสร้างใน adminStaff จริงหรือไม่
-            const staffExists = adminStaff.some(s => s.username === u);
-            if (!staffExists) {
+            const cachedStaff = JSON.parse(localStorage.getItem(STAFF_KEY) || '[]');
+            const staffExists = cachedStaff.length
+                ? cachedStaff.some(s => s.username === u)
+                : adminStaff.some(s => s.username === u);
+            if (!staffExists && cachedStaff.length > 0) {
                 errText.textContent = 'บัญชีนี้ยังไม่ได้เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
                 errEl.classList.add('show');
                 document.getElementById('login-password').value = '';
-                return;
+                return true;
             }
             errEl.classList.remove('show');
             sessionStorage.setItem(ADMIN_SESSION_KEY, 'active');
             sessionStorage.setItem('it_current_user', u);
             showAdminPanel();
-        } else {
+            Promise.all([syncPasswords(), syncStaff(adminStaff)]).catch(() => {});
+            return true;
+        }
+        return false;
+    }
+
+    // ลอง login จาก cache ก่อน
+    if (_tryLogin()) return;
+
+    // cache miss: sync server แล้วลองใหม่
+    errText.textContent = 'กำลังตรวจสอบ...';
+    errEl.classList.add('show');
+    Promise.all([syncPasswords(), syncStaff(adminStaff)]).then(() => {
+        errEl.classList.remove('show');
+        if (!_tryLogin()) {
             errText.textContent = 'Incorrect username or password. Please try again.';
             errEl.classList.add('show');
             document.getElementById('login-password').value = '';
             document.getElementById('login-password').focus();
         }
     }).catch(() => {
-        // fallback: ถ้า server ไม่ตอบ ใช้รหัสเดิมจาก memory
-        const effectiveAdminPass = getEffectivePassword(ADMIN_USER) || ADMIN_PASS;
-        if (u === ADMIN_USER && p === effectiveAdminPass) {
-            errEl.classList.remove('show');
-            sessionStorage.setItem(ADMIN_SESSION_KEY, 'active');
-            sessionStorage.setItem('it_current_user', 'adminit');
-            showAdminPanel();
-        } else {
-            errText.textContent = 'Incorrect username or password. Please try again.';
-            errEl.classList.add('show');
-            document.getElementById('login-password').value = '';
-        }
+        errText.textContent = 'Incorrect username or password. Please try again.';
+        errEl.classList.add('show');
+        document.getElementById('login-password').value = '';
     });
 }
 
@@ -6092,30 +6124,41 @@ function updateGasBanner() {
 
 async function adminRefreshData() {
     updateGasBanner();
-    // ใช้ข้อมูลที่ syncTickets() กรองแล้วจาก localStorage (blacklist ถูกกรองไปแล้ว)
-    // ดึงจาก GAS โดยตรง (syncTickets จะ update adminTickets + userTickets)
-    await syncTickets();
-    // ดึง staff จาก server ทุกครั้ง เพื่อให้ทุกเครื่องเห็นข้อมูลเดียวกัน
-    adminStaff = await dbGetStaff([
-        { id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }
-    ]);
-    localStorage.setItem(STAFF_KEY, JSON.stringify(adminStaff));
-    populateCategoryFilter();
-    updateAdminStats();
-    adminRenderDashboard();
-    adminRenderAllTickets();
-    renderAdminStaff();
-    updateAssigneeDropdown();
-    renderSLAWidget();
-    renderARTWidget();
-    renderFCRWidget();
-    renderRIRWidget();
-    renderP1Widget();
-    renderUSSWidget();
-    if (document.getElementById('section-team-performance')?.classList.contains('active')) renderTeamPerformance();
-    const now = new Date();
-    const el = document.getElementById('last-update');
-    if (el) el.textContent = now.toLocaleTimeString('th-TH');
+
+    // ── render จาก cache ก่อนทันที (ไม่รอ GAS) ───────────────────────────────
+    function _renderAll() {
+        populateCategoryFilter();
+        updateAdminStats();
+        adminRenderDashboard();
+        adminRenderAllTickets();
+        renderAdminStaff();
+        updateAssigneeDropdown();
+        renderSLAWidget();
+        renderARTWidget();
+        renderFCRWidget();
+        renderRIRWidget();
+        renderP1Widget();
+        renderUSSWidget();
+        if (document.getElementById('section-team-performance')?.classList.contains('active')) renderTeamPerformance();
+        const now = new Date();
+        const el = document.getElementById('last-update');
+        if (el) el.textContent = now.toLocaleTimeString('th-TH');
+    }
+
+    _renderAll();
+
+    // ── sync จาก GAS ใน background แล้ว render ใหม่ถ้าข้อมูลเปลี่ยน ──────────
+    try {
+        const [newTickets, newStaff] = await Promise.all([
+            syncTickets(),
+            dbGetStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }])
+        ]);
+        adminStaff = newStaff;
+        localStorage.setItem(STAFF_KEY, JSON.stringify(adminStaff));
+        _renderAll();
+    } catch(e) {
+        console.warn('[adminRefreshData] GAS sync failed, using cache', e);
+    }
 }
 
 function updateAdminStats() {
@@ -11565,7 +11608,7 @@ function docPrint() {
     pw.document.write('</style>');
     pw.document.write('</head><body onload="window.print();window.close();">');
     pw.document.write(content);
-    pw.document.write('</body></html>');
+    pw.document.write('</html>');
     pw.document.close();
     pw.focus();
 }
