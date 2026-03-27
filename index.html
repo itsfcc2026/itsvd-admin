@@ -4341,15 +4341,8 @@ async function _initApp() {
     const _isUserLoggedIn = (typeof UserSession !== 'undefined') && UserSession && (typeof UserSession.isLoggedIn === 'function') && UserSession.isLoggedIn();
 
     if (session === 'active') {
-        // Admin: ซ่อน overlay ทันที แล้วเรียก showAdminPanel
-        const _olEl = document.getElementById('login-overlay');
-        if (_olEl) { _olEl.classList.add('hidden'); _olEl.style.display = 'none'; }
-        const _apEl = document.getElementById('view-admin-panel');
-        if (_apEl) _apEl.classList.add('active');
-        // เรียก showAdminPanel ใน setTimeout เพื่อให้ DOM render frame แรกก่อน
-        setTimeout(() => {
-            showAdminPanel().catch(e => console.warn('[initApp] showAdminPanel error', e));
-        }, 0);
+        // session ยังอยู่ (refresh หน้า) → เรียก showAdminPanel ทันที
+        showAdminPanel().catch(e => console.warn('[initApp] showAdminPanel error', e));
     } else if (_isUserLoggedIn) {
         // User: แสดง portal ได้เลย ไม่ต้องผ่าน login overlay
         const _ol = document.getElementById('login-overlay');
@@ -4499,85 +4492,99 @@ function showUserPortal() {
 }
 
 async function showAdminPanel() {
-    // ── แสดง UI ทันที ─────────────────────────────────────────────────────────
-    document.getElementById('login-overlay').classList.add('hidden');
-    document.getElementById('view-user-portal').classList.remove('active');
-    document.getElementById('view-admin-panel').classList.add('active');
+    // 1. ซ่อน overlay ทันที — ไม่ให้ขาว
+    const _ol = document.getElementById('login-overlay');
+    if (_ol) {
+        _ol.classList.remove('visible');
+        _ol.classList.add('hidden');
+        _ol.style.display = 'none';
+    }
+    document.getElementById('view-user-portal')?.classList.remove('active');
 
-    // แสดง mobile topbar ทันที
+    // 2. แสดง admin panel
+    const _ap = document.getElementById('view-admin-panel');
+    if (_ap) _ap.classList.add('active');
+
+    // 3. mobile topbar
     const _topbar = document.getElementById('admin-mobile-topbar');
     if (_topbar) _topbar.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
 
-    // ── แสดงชื่อจาก cache ทันที (ไม่รอ server) ────────────────────────────────
+    // 4. ชื่อจาก cache
     const _loginUser = sessionStorage.getItem('it_current_user') || 'ADMIN';
-    const _cachedStaff = JSON.parse(localStorage.getItem(STAFF_KEY) || '[]');
-    if (_cachedStaff.length) adminStaff = _cachedStaff;
-
+    try {
+        const _cachedStaff = JSON.parse(localStorage.getItem(STAFF_KEY) || '[]');
+        if (_cachedStaff.length) adminStaff = _cachedStaff;
+    } catch(e) {}
     const _nameEl = document.getElementById('admin-display-name');
     if (_nameEl) {
-        const _staffMatch = adminStaff.find(s => s.username === _loginUser);
-        const _displayName = _staffMatch ? _staffMatch.name : _loginUser.toUpperCase();
-        _nameEl.textContent = 'สวัสดี ' + _displayName;
+        const _m = adminStaff.find && adminStaff.find(s => s.username === _loginUser);
+        _nameEl.textContent = 'สวัสดี ' + (_m ? _m.name : _loginUser.toUpperCase());
     }
     const _topbarName = document.getElementById('adm-topbar-name');
     if (_topbarName && _nameEl) _topbarName.textContent = _nameEl.textContent;
 
-    // ── ซ่อน/แสดงเมนูตาม role ─────────────────────────────────────────────────
-    const isSuperAdmin = _loginUser === ADMIN_USER || isAdminRole(adminStaff.find(s=>s.username===_loginUser)?.role);
-    const gsMenuBtn   = document.getElementById('nav-google-sheet');
-    const gsMenuLabel = gsMenuBtn?.previousElementSibling;
-    if (gsMenuBtn)   gsMenuBtn.style.display   = isSuperAdmin ? '' : 'none';
-    if (gsMenuLabel && gsMenuLabel.classList.contains('sidebar-section-label')) {
-        gsMenuLabel.style.display = isSuperAdmin ? '' : 'none';
-    }
-    const usersMgmtBtn = document.getElementById('nav-users-mgmt');
-    if (usersMgmtBtn) usersMgmtBtn.style.display = (_loginUser === ADMIN_USER) ? '' : 'none';
-    const ownPassBtn = document.getElementById('btn-change-own-pass');
-    if (ownPassBtn) ownPassBtn.style.display = isSuperAdmin ? 'flex' : 'none';
+    // 5. ซ่อน/แสดงเมนูตาม role
+    try {
+        const isSuperAdmin = _loginUser === ADMIN_USER || isAdminRole(adminStaff.find && adminStaff.find(s=>s.username===_loginUser)?.role);
+        const gsBtn = document.getElementById('nav-google-sheet');
+        if (gsBtn) {
+            gsBtn.style.display = isSuperAdmin ? '' : 'none';
+            const gsLabel = gsBtn.previousElementSibling;
+            if (gsLabel && gsLabel.classList.contains('sidebar-section-label')) gsLabel.style.display = isSuperAdmin ? '' : 'none';
+        }
+        const umBtn = document.getElementById('nav-users-mgmt');
+        if (umBtn) umBtn.style.display = (_loginUser === ADMIN_USER) ? '' : 'none';
+        const opBtn = document.getElementById('btn-change-own-pass');
+        if (opBtn) opBtn.style.display = isSuperAdmin ? 'flex' : 'none';
+    } catch(e) {}
 
+    // 6. ภาษา + i18n
     currentLang = 'th';
     localStorage.setItem('it_portal_lang', 'th');
     const userSel = document.getElementById('lang-selector');
     if (userSel) userSel.value = 'th';
-    updateAllI18n();
+    if (typeof updateAllI18n === 'function') try { updateAllI18n(); } catch(e) {}
 
+    // 7. เปิด section dashboard
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
-
     const isMobile = window.innerWidth <= 768;
-    const defaultSection = isMobile ? 'all-tickets' : 'dashboard';
-    document.getElementById(`section-${defaultSection}`)?.classList.add('active');
-    const defaultNavQuery = isMobile ? '.admin-nav-item[onclick*="all-tickets"]' : '.admin-nav-item[onclick*="dashboard"]';
-    document.querySelector(defaultNavQuery)?.classList.add('active');
+    const defSection = isMobile ? 'all-tickets' : 'dashboard';
+    document.getElementById('section-' + defSection)?.classList.add('active');
+    const defNavQ = isMobile ? '.admin-nav-item[onclick*="all-tickets"]' : '.admin-nav-item[onclick*="dashboard"]';
+    document.querySelector(defNavQ)?.classList.add('active');
 
-    // ── render จาก cache ทันที ────────────────────────────────────────────────
+    // 8. render จาก cache ทันที
     try {
-        const _cachedTickets = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-        const _deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-        const _filtered = _deletedIds.length ? _cachedTickets.filter(t => !_deletedIds.includes(t.id)) : _cachedTickets;
-        if (_filtered.length) {
-            adminTickets = _filtered;
-            updateAdminStats();
-            adminRenderDashboard();
-            adminRenderAllTickets();
-        }
-    } catch(e) { console.warn('[showAdminPanel] cache render error', e); }
-    try { lucideReinit(); } catch(e) {}
+        const _raw = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
+        const _del = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+        const _tix = _del.length ? _raw.filter(t => !_del.includes(t.id)) : _raw;
+        if (_tix.length) adminTickets = _tix;
+        if (typeof updateAdminStats === 'function') updateAdminStats();
+        if (typeof adminRenderDashboard === 'function') adminRenderDashboard();
+        if (typeof adminRenderAllTickets === 'function') adminRenderAllTickets();
+    } catch(e) { console.warn('[showAdminPanel] cache render:', e.message); }
 
-    // ── sync จาก server ใน background ─────────────────────────────────────────
-    setTimeout(() => {
-        adminRefreshData().catch(() => {});
-        syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]).then(staff => {
+    // 9. lucide icons
+    if (typeof lucideReinit === 'function') try { lucideReinit(); } catch(e) {}
+
+    // 10. sync server ใน background (ไม่บล็อก UI)
+    setTimeout(async () => {
+        try { await adminRefreshData(); } catch(e) {}
+        try {
+            const staff = await syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]);
             adminStaff = staff;
-            // อัปเดตชื่อถ้าเพิ่งโหลดจาก server ได้
             if (_nameEl) {
-                const _m = adminStaff.find(s => s.username === _loginUser);
-                if (_m) _nameEl.textContent = 'สวัสดี ' + _m.name;
-                if (_topbarName) _topbarName.textContent = _nameEl.textContent;
+                const _m2 = adminStaff.find(s => s.username === _loginUser);
+                if (_m2) {
+                    _nameEl.textContent = 'สวัสดี ' + _m2.name;
+                    if (_topbarName) _topbarName.textContent = _nameEl.textContent;
+                }
             }
-        }).catch(() => {});
-    }, 0);
+        } catch(e) {}
+    }, 50);
 }
+
 
 // เปิด login overlay แล้วแสดงเฉพาะหน้า Admin Login
 function showAdminLoginOverlay() {
