@@ -47,7 +47,7 @@
             -webkit-overflow-scrolling: touch;
             padding: 20px 16px;
         }
-        #login-overlay.visible { display: flex; }
+        #login-overlay.visible { display: flex !important; }
         #login-overlay.hidden { display: none !important; opacity: 0; pointer-events: none; }
 
         .login-bg-pattern {
@@ -4716,22 +4716,42 @@ function doLogin() {
 
 function adminLogout() {
     if (!confirm('Confirm logout from Admin?')) return;
+
+    // 1. ล้าง session
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     sessionStorage.removeItem('it_current_user');
-    // เคลียร์ค่า input login ทั้งหมด
-    const clearIds = ['user-login-email','user-login-password','login-username','login-password'];
-    clearIds.forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ''; });
-    // ปิด drawer/overlay ทั้งหมด
+
+    // 2. ล้าง input
+    ['user-login-email','user-login-password','login-username','login-password']
+        .forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ''; });
+
+    // 3. ปิด drawer
     if (typeof closeAdminDrawer  === 'function') closeAdminDrawer();
     if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
-    // ซ่อนทุก view แล้วกลับ login โดยตรง (ไม่ผ่าน showUserPortal เพราะ session ถูกล้างแล้ว)
-    document.getElementById('view-admin-panel').classList.remove('active');
-    document.getElementById('view-user-portal').classList.remove('active');
+
+    // 4. ซ่อน admin/user panel
+    document.getElementById('view-admin-panel')?.classList.remove('active');
+    document.getElementById('view-user-portal')?.classList.remove('active');
+
+    // 5. แสดง login overlay — ต้อง set display:flex ตรงๆ ไม่ใช่ style=''
     const ol = document.getElementById('login-overlay');
-    ol.classList.remove('hidden');
-    ol.classList.add('visible');
-    ol.style.display = '';
-    setTimeout(function(){ if (typeof showAdminLoginPanel === 'function') showAdminLoginPanel(); }, 50);
+    if (ol) {
+        ol.classList.remove('hidden');
+        ol.classList.add('visible');
+        ol.style.display = 'flex';
+    }
+
+    // 6. แสดง Admin login box ซ่อน user panels
+    const adminBox = document.querySelector('#login-overlay .login-box');
+    if (adminBox) adminBox.style.display = '';
+    ['user-login-box','user-register-box','user-forgot-box'].forEach(function(id){
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // 7. reset error + focus
+    document.getElementById('login-error')?.classList.remove('show');
+    document.getElementById('login-username')?.focus();
 }
 
 function userLogout() {
@@ -12663,27 +12683,30 @@ window.usersDoResetPassword = usersDoResetPassword;
     var adminPanel = document.getElementById('view-admin-panel');
 
     if (adminPanel && adminPanel.classList.contains('active')) {
-      // Admin: clear session แล้วกลับ login โดยไม่ confirm
+      // Admin: clear session แล้วกลับ admin login ทันที
       if (typeof sessionStorage !== 'undefined') {
         try { sessionStorage.removeItem('it_admin_session'); } catch(e){}
         try { sessionStorage.removeItem('it_current_user');  } catch(e){}
       }
       if (typeof closeAdminDrawer  === 'function') closeAdminDrawer();
       if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
-      // ซ่อน admin panel
       adminPanel.classList.remove('active');
-      // แสดง login overlay
       var ol = document.getElementById('login-overlay');
       if (ol) {
         ol.classList.remove('hidden');
         ol.classList.add('visible');
-        ol.style.display = '';
+        ol.style.display = 'flex';
       }
-      setTimeout(function() {
-        if (typeof showAdminLoginPanel === 'function') showAdminLoginPanel();
-      }, 80);
+      var adminBox = document.querySelector('#login-overlay .login-box');
+      if (adminBox) adminBox.style.display = '';
+      ['user-login-box','user-register-box','user-forgot-box'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('login-error')?.classList.remove('show');
+      document.getElementById('login-username')?.focus();
     } else if (userPortal && userPortal.classList.contains('active')) {
-      // User portal: clear session แล้วกลับ login โดยไม่ confirm
+      // User portal: clear session แล้วกลับ admin login
       if (typeof UserSession !== 'undefined' && typeof UserSession.clear === 'function') UserSession.clear();
       if (typeof sessionStorage !== 'undefined') {
         try { sessionStorage.removeItem('it_current_user'); } catch(e){}
@@ -12693,11 +12716,16 @@ window.usersDoResetPassword = usersDoResetPassword;
       if (ol) {
         ol.classList.remove('hidden');
         ol.classList.add('visible');
-        ol.style.display = '';
+        ol.style.display = 'flex';
       }
-      setTimeout(function() {
-        if (typeof showUserLoginPanel === 'function') showUserLoginPanel();
-      }, 80);
+      var adminBox = document.querySelector('#login-overlay .login-box');
+      if (adminBox) adminBox.style.display = '';
+      ['user-login-box','user-register-box','user-forgot-box'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('login-error')?.classList.remove('show');
+      document.getElementById('login-username')?.focus();
     }
   }
 
