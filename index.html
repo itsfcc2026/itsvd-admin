@@ -12077,14 +12077,20 @@ document.addEventListener('DOMContentLoaded', () => {
       _updateUserPortalName(user);
     }
   } else {
-    // ไม่มี session → แสดงหน้า User Login เสมอ
+    // ไม่มี session → แสดงหน้า Admin Login เสมอ
     const ol = document.getElementById('login-overlay');
     if (ol) {
       ol.classList.remove('hidden');
       ol.classList.add('visible');
       ol.style.display = '';
     }
-    setTimeout(() => { if (typeof showUserLoginPanel === 'function') showUserLoginPanel(); }, 80);
+    const adminBox = document.querySelector('#login-overlay .login-box');
+    if (adminBox) adminBox.style.display = '';
+    ['user-login-box','user-register-box','user-forgot-box'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    setTimeout(() => document.getElementById('login-username')?.focus(), 100);
   }
 });
 
