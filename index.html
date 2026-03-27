@@ -2262,7 +2262,6 @@
         #users-table-wrap .u-btn-pass  { border: 1.5px solid #bfdbfe !important; background: #eff6ff; color: #1d4ed8; }
         #users-table-wrap .u-btn-del   { border: 1.5px solid #fecaca !important; background: #fff1f2; color: #dc2626; }
     </style>
-    </style>
 </head>
 <body>
 
@@ -2270,7 +2269,7 @@
 <!-- ===================== LOGIN OVERLAY ===================== -->
 <div id="login-overlay" class="visible">
     <div class="login-bg-pattern"></div>
-    <div class="login-box" style="display:none;">
+    <div class="login-box">
         <div class="login-logo">
             <div class="icon-wrap">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -4096,7 +4095,6 @@
 <div id="toast"></div>
 
 <script>
-<script>
 // ===================== DATA KEYS =====================
 const TICKETS_KEY = 'it_portal_user_tickets';
 const STAFF_KEY = 'it_portal_staff';
@@ -4360,12 +4358,24 @@ window.onload = async function() {
         adminTickets = _filtered;
         userTickets  = _filterForCurrentUser(_filtered); // กรองตาม email ทันที
     } else {
-        // ยังไม่ login → แสดง login overlay
+        // ยังไม่ login → แสดง admin login overlay โดยตรง
         const _ol = document.getElementById('login-overlay');
         _ol.classList.remove('hidden');
         _ol.classList.add('visible');
         _ol.style.display = '';
-        setTimeout(() => { if (typeof showAdminLoginPanel === 'function') showAdminLoginPanel(); }, 50);
+        // แสดง admin login box, ซ่อน user panels
+        const _adminBox = document.querySelector('#login-overlay .login-box');
+        if (_adminBox) _adminBox.style.display = '';
+        ['user-login-box','user-register-box','user-forgot-box'].forEach(function(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        const _uEl = document.getElementById('login-username');
+        const _pEl = document.getElementById('login-password');
+        if (_uEl) _uEl.value = '';
+        if (_pEl) _pEl.value = '';
+        document.getElementById('login-error')?.classList.remove('show');
+        setTimeout(() => document.getElementById('login-username')?.focus(), 100);
     }
 
     document.getElementById('lang-selector').value = currentLang;
