@@ -4335,15 +4335,21 @@ function _filterForCurrentUser(all) {
 }
 
 // ===================== INIT =====================
-window.onload = async function() {
+async function _initApp() {
     // ── Step 1: เช็ค session ทันทีจาก localStorage/sessionStorage (ไม่รอ GAS)
     const session = sessionStorage.getItem(ADMIN_SESSION_KEY);
-    const _isUserLoggedIn = typeof UserSession !== 'undefined' && UserSession.isLoggedIn();
+    const _isUserLoggedIn = (typeof UserSession !== 'undefined') && UserSession && (typeof UserSession.isLoggedIn === 'function') && UserSession.isLoggedIn();
 
     if (session === 'active') {
-        // Admin: แสดง UI ได้เลย โหลด data ใน background
-        document.getElementById('login-overlay').classList.add('hidden');
-        document.getElementById('view-admin-panel').classList.add('active');
+        // Admin: ซ่อน overlay ทันที แล้วเรียก showAdminPanel
+        const _olEl = document.getElementById('login-overlay');
+        if (_olEl) { _olEl.classList.add('hidden'); _olEl.style.display = 'none'; }
+        const _apEl = document.getElementById('view-admin-panel');
+        if (_apEl) _apEl.classList.add('active');
+        // เรียก showAdminPanel ใน setTimeout เพื่อให้ DOM render frame แรกก่อน
+        setTimeout(() => {
+            showAdminPanel().catch(e => console.warn('[initApp] showAdminPanel error', e));
+        }, 0);
     } else if (_isUserLoggedIn) {
         // User: แสดง portal ได้เลย ไม่ต้องผ่าน login overlay
         const _ol = document.getElementById('login-overlay');
@@ -4378,18 +4384,17 @@ window.onload = async function() {
         setTimeout(() => document.getElementById('login-username')?.focus(), 100);
     }
 
-    document.getElementById('lang-selector').value = currentLang;
-    updateUserUI();
-    document.getElementById('ticket-form').onsubmit = handleTicketSubmit;
+    const _lsel = document.getElementById('lang-selector');
+    if (_lsel) _lsel.value = currentLang;
+    try { updateUserUI(); } catch(e) { console.warn('updateUserUI error', e); }
+    const _tf = document.getElementById('ticket-form');
+    if (_tf) _tf.onsubmit = handleTicketSubmit;
 
     // ── Step 2: sync ข้อมูลจาก GAS ใน background (ไม่บล็อก UI)
-    syncPasswords();
+    syncPasswords().catch(() => {});
     syncTickets().then(() => {
-        updateUserUI();
-        if (session === 'active') {
-            showAdminPanel();
-        }
-    });
+        try { updateUserUI(); } catch(e) {}
+    }).catch(() => {});
 
     // ── Auto-refresh ทุก 8 วินาที โดยไม่รบกวน user ──────────────────────────────
     let _lastSyncHash = '';
@@ -4439,7 +4444,15 @@ window.onload = async function() {
     }
 
     setInterval(_silentRefresh, 5000);
-};
+}
+
+// ── เรียก init หลัง scripts ทุกตัวโหลดเสร็จ ──
+if (document.readyState === 'complete') {
+    _initApp();
+} else {
+    window.addEventListener('load', _initApp);
+}
+
 
 // ===================== VIEW MANAGER =====================
 function showUserPortal() {
@@ -4538,22 +4551,18 @@ async function showAdminPanel() {
     document.querySelector(defaultNavQuery)?.classList.add('active');
 
     // ── render จาก cache ทันที ────────────────────────────────────────────────
-    const _cachedTickets = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-    const _deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-    const _filtered = _deletedIds.length ? _cachedTickets.filter(t => !_deletedIds.includes(t.id)) : _cachedTickets;
-    if (_filtered.length) {
-        adminTickets = _filtered;
-        updateAdminStats();
-        adminRenderDashboard();
-        adminRenderAllTickets();
-        renderSLAWidget();
-        renderARTWidget();
-        renderFCRWidget();
-        renderRIRWidget();
-        renderP1Widget();
-        renderUSSWidget();
-    }
-    lucideReinit();
+    try {
+        const _cachedTickets = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
+        const _deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+        const _filtered = _deletedIds.length ? _cachedTickets.filter(t => !_deletedIds.includes(t.id)) : _cachedTickets;
+        if (_filtered.length) {
+            adminTickets = _filtered;
+            updateAdminStats();
+            adminRenderDashboard();
+            adminRenderAllTickets();
+        }
+    } catch(e) { console.warn('[showAdminPanel] cache render error', e); }
+    try { lucideReinit(); } catch(e) {}
 
     // ── sync จาก server ใน background ─────────────────────────────────────────
     setTimeout(() => {
