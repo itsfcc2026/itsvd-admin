@@ -2110,6 +2110,7 @@
         #toast.show { display: flex; }
         #toast.success { background: #16a34a; }
         #toast.error { background: #dc2626; }
+        #toast.warning { background: #d97706; }
 
         /* Filter tags */
         .filter-tabs { display: flex; gap: 8px; margin-bottom: 1.2rem; flex-wrap: wrap; }
@@ -4112,47 +4113,63 @@ function setGasDbUrl(url) {
 }
 
 // ── GAS fetch helper ─────────────────────────────────────────────────────────
-// ใช้ GET เสมอ เพื่อหลีกเลี่ยงปัญหา CORS preflight และ opaque redirect ของ GAS
+// READ actions  → GET  (รองรับ CORS, response อ่านได้)
+// WRITE actions → POST form-urlencoded + redirect:follow (GAS Web App รองรับ)
 async function gasFetch(action, payload = {}) {
     const url = getGasDbUrl();
     if (!url) throw new Error('NO_GAS_URL');
 
+    const WRITE_ACTIONS = ['saveTickets','addTicket','updateTicket','saveStaff','savePassword'];
+    const isWrite = WRITE_ACTIONS.includes(action);
+
     async function _doFetch() {
-        // สร้าง query string — ทุก action ส่งเป็น GET เพื่อให้ GAS ตอบกลับตรงๆ
-        const params = new URLSearchParams({ action });
-        Object.entries(payload).forEach(([k, v]) => {
-            params.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-        });
+        let r;
 
-        // ถ้า payload ใหญ่มาก (saveTickets) ให้ตัด data ออกแล้วส่งทีละ ticket แทน
-        // แต่ในกรณีปกติ GET ได้เลย
-        const fullUrl = url + '?' + params.toString();
-
-        const r = await fetch(fullUrl, {
-            method: 'GET',
-            redirect: 'follow',
-            cache: 'no-store'
-        });
+        if (isWrite) {
+            // POST → form-urlencoded (GAS doPost รับได้, redirect follow ใช้ได้กับ same-site)
+            const body = new URLSearchParams();
+            body.append('action', action);
+            Object.entries(payload).forEach(([k, v]) => {
+                body.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+            });
+            r = await fetch(url, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+        } else {
+            // GET → query string (อ่านข้อมูล)
+            const params = new URLSearchParams({ action });
+            Object.entries(payload).forEach(([k, v]) => {
+                params.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+            });
+            r = await fetch(url + '?' + params.toString(), {
+                method: 'GET',
+                redirect: 'follow',
+                cache: 'no-store'
+            });
+        }
 
         if (!r.ok) throw new Error('GAS_HTTP_' + r.status);
         const text = await r.text();
         try {
             return JSON.parse(text);
         } catch(e) {
-            // GAS บางครั้ง return HTML (error page) แทน JSON
             console.warn('[gasFetch] non-JSON response for', action, ':', text.slice(0, 300));
             throw new Error('GAS_NON_JSON');
         }
     }
 
-    // Retry 2 ครั้งถ้า network error
+    // Retry 3 ครั้ง (GAS บางครั้ง timeout ครั้งแรก)
     let lastErr;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
         try {
             return await _doFetch();
         } catch(e) {
             lastErr = e;
-            if (attempt < 1) await new Promise(r => setTimeout(r, 1500));
+            console.warn(`[gasFetch] attempt ${attempt+1} failed for "${action}":`, e.message);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
         }
     }
     throw lastErr;
@@ -4208,11 +4225,10 @@ async function dbAddTicket(ticket) {
     // อัปเดต in-memory ทันที (optimistic)
     if (!adminTickets.find(t => t.id === ticket.id)) adminTickets.unshift(ticket);
     localStorage.setItem(TICKETS_KEY, JSON.stringify(adminTickets)); // update cache
-    try {
-        await gasFetch('addTicket', { data: ticket });
-    } catch(e) {
-        console.warn('[GAS] dbAddTicket failed (cache only)', e.message);
-    }
+    // ส่งขึ้น GAS — throw ถ้าล้มเหลวเพื่อให้ caller รับรู้
+    const res = await gasFetch('addTicket', { data: ticket });
+    console.log('[dbAddTicket] GAS response:', JSON.stringify(res).slice(0, 200));
+    return res;
 }
 
 // ── อัปเดต ticket รายตัว — update in-memory + cache แล้ว sync GAS ──────────
@@ -5358,7 +5374,7 @@ async function sendTelegramStatusUpdate(ticket, updatedStatus, assigneeName) {
 }
 // ===================== END TELEGRAM STATUS UPDATE =====================
 
-function _commitTicket(ticket) {
+async function _commitTicket(ticket) {
     // ── Optimistic update: อัปเดต in-memory ทันที (ไม่รอ GAS) ──
     if (!adminTickets.find(t => t.id === ticket.id)) adminTickets.unshift(ticket);
     userTickets = _filterForCurrentUser(adminTickets);
@@ -5366,10 +5382,17 @@ function _commitTicket(ticket) {
     // render UI ทันทีโดยไม่รอ network
     if (typeof renderUserTickets === 'function') renderUserTickets();
     if (typeof updateUserBadge === 'function') updateUserBadge();
-    // ส่งขึ้น GAS + Telegram ใน background
-    dbAddTicket(ticket);
-    sendTelegramNotification(ticket); // ส่งแจ้งเตือนไปยัง Telegram
-    showToast('✅ ส่ง Ticket เรียบร้อย! เลขอ้างอิง: ' + ticket.id, 'success');
+
+    // ส่งขึ้น GAS — รอผล แจ้งถ้าล้มเหลว
+    try {
+        await dbAddTicket(ticket);
+        showToast('✅ ส่ง Ticket เรียบร้อย! เลขอ้างอิง: ' + ticket.id, 'success');
+    } catch(e) {
+        // GAS ล้มเหลว — ticket อยู่ใน cache แล้ว แจ้งเตือน user
+        showToast('⚠️ บันทึก Ticket แล้ว แต่ยังไม่ได้ sync ขึ้น Server กรุณาตรวจสอบการเชื่อมต่อ', 'warning');
+        console.error('[_commitTicket] GAS sync failed:', e.message);
+    }
+    sendTelegramNotification(ticket); // ส่งแจ้งเตือน Telegram ใน background
 }
 
 function _afterSubmitReset(form) {
