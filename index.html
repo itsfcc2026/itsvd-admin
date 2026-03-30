@@ -4325,9 +4325,17 @@ function _filterForCurrentUser(all) {
     if (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'active') return all;
     const _sess = (typeof UserSession !== 'undefined') ? UserSession.getUser() : null;
     const _email = _sess ? (_sess.email || '').toLowerCase().trim() : null;
+    const _name  = _sess ? (_sess.fullname || '').toLowerCase().trim() : null;
     // ถ้าไม่มี email (ยังไม่ login) → คืน array ว่าง เพื่อป้องกันข้อมูลรั่ว
     if (!_email) return [];
-    return all.filter(t => (t.email || '').toLowerCase().trim() === _email);
+    return all.filter(t => {
+        const tEmail = (t.email || '').toLowerCase().trim();
+        // match ด้วย email ก่อน (กรณีปกติ)
+        if (tEmail && tEmail === _email) return true;
+        // fallback: ticket เก่าที่ไม่มี email → match ด้วย username/fullname
+        if (!tEmail && _name && (t.user || '').toLowerCase().trim() === _name) return true;
+        return false;
+    });
 }
 
 // ===================== INIT =====================
@@ -5321,6 +5329,9 @@ function _afterSubmitReset(form) {
     const deptSel = document.getElementById('userDept');
     if (deptSel) deptSel.innerHTML = '<option value= disabled selected>-- กรุณาเลือกส่วนงานก่อน --</option>';
     userShowPage('track');
+    // re-render หลังจาก switch page เพื่อให้ ticket ใหม่แสดงแน่ใจ
+    userCurrentPage = 1;
+    renderUserTickets();
     updateUserBadge();
 }
 
