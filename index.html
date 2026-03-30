@@ -4345,8 +4345,20 @@ function getEffectivePassword(username) {
 async function syncTickets() {
     const data = await dbGetTickets(); // GAS first, offline cache fallback
     console.log('[syncTickets] ได้รับ', data.length, 'tickets จาก GAS/cache');
-    const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-    const filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
+
+    // Admin/staff session: ไม่กรอง _deletedIds (blacklist ของ local เครื่องอื่นไม่ควรซ่อน ticket)
+    // ใช้ข้อมูลตรงจาก GAS เลย — ticket ที่ถูก "ลบ" จริงจะถูกลบจาก GAS Sheet แล้ว
+    const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'active';
+    let filtered;
+    if (isAdmin) {
+        // Admin เห็น ticket ทั้งหมดจาก GAS โดยไม่กรอง local blacklist
+        filtered = data;
+    } else {
+        // User portal: กรอง _deletedIds ที่อาจถูก soft-delete ใน local session
+        const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+        filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
+    }
+
     adminTickets = filtered;                          // admin/staff เห็นทั้งหมด
     userTickets  = _filterForCurrentUser(filtered);   // user เห็นเฉพาะของตัวเอง
     localStorage.setItem(TICKETS_KEY, JSON.stringify(filtered)); // update cache
@@ -4518,18 +4530,23 @@ async function _initApp() {
 
         const prevHash = _lastSyncHash;
         await syncTickets();
-        const newHash = _calcHash(userTickets);
+
+        // ใช้ adminTickets สำหรับ hash เมื่ออยู่ใน admin panel (ไม่ใช่ userTickets ซึ่งอาจว่าง)
+        const isAdminActive = document.getElementById('view-admin-panel')?.classList.contains('active');
+        const _hashSource = isAdminActive ? adminTickets : userTickets;
+        const newHash = _calcHash(_hashSource);
         _lastSyncHash = newHash;
 
-        if (newHash === prevHash) return;
-
         updateUserBadge();
-        const isAdminActive = document.getElementById('view-admin-panel')?.classList.contains('active');
         if (isAdminActive) {
-            // adminRefreshData จะ sync GAS + render ทุก section รวมถึง all-tickets
-            adminRefreshData();
+            // render เสมอเมื่อ admin active — เพื่อให้ ticket ที่ถูก submit จากเครื่องอื่นแสดงทันที
+            if (newHash !== prevHash) {
+                adminRefreshData();
+            }
         } else {
-            renderUserTickets();
+            if (newHash !== prevHash) {
+                renderUserTickets();
+            }
         }
     }
 
@@ -4655,12 +4672,11 @@ async function showAdminPanel() {
     const defNavQ = isMobile ? '.admin-nav-item[onclick*="all-tickets"]' : '.admin-nav-item[onclick*="dashboard"]';
     document.querySelector(defNavQ)?.classList.add('active');
 
-    // 8. render จาก cache ทันที
+    // 8. render จาก cache ทันที (admin ไม่กรอง _deletedIds — ใช้ข้อมูลดิบจาก cache)
     try {
         const _raw = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-        const _del = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-        const _tix = _del.length ? _raw.filter(t => !_del.includes(t.id)) : _raw;
-        if (_tix.length) adminTickets = _tix;
+        // Admin เห็นทั้งหมดจาก cache — ไม่กรอง _deletedIds เพราะ deletedIds เป็น local ของแต่ละเครื่อง
+        if (_raw.length) adminTickets = _raw;
         if (typeof updateAdminStats === 'function') updateAdminStats();
         if (typeof adminRenderDashboard === 'function') adminRenderDashboard();
         if (typeof adminRenderAllTickets === 'function') adminRenderAllTickets();
