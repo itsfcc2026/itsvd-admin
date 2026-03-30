@@ -4112,51 +4112,79 @@ function setGasDbUrl(url) {
 }
 
 // ── GAS fetch helper ─────────────────────────────────────────────────────────
-// ใช้ POST แบบ application/x-www-form-urlencoded เพื่อหลีกเลี่ยง CORS preflight
-// (Content-Type: application/json ทำให้เบราว์เซอร์ส่ง OPTIONS preflight → GAS ไม่รองรับ → blocked)
 async function gasFetch(action, payload = {}) {
     const url = getGasDbUrl();
     if (!url) throw new Error('NO_GAS_URL');
 
-    // action ที่มี data ขนาดใหญ่ → ใช้ POST แต่ส่งเป็น form-urlencoded (ไม่ trigger preflight)
     const usePost = ['saveTickets','addTicket','updateTicket','saveStaff','savePassword'].includes(action);
 
-    let r;
-    if (usePost) {
-        // form-urlencoded ไม่ trigger CORS preflight → GAS รับได้ทาง e.postData.contents หรือ e.parameter
-        const formData = new URLSearchParams();
-        formData.append('action', action);
-        Object.entries(payload).forEach(([k, v]) => {
-            formData.append(k, typeof v === 'object' ? JSON.stringify(v) : v);
-        });
-        r = await fetch(url, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        });
-    } else {
-        const params = new URLSearchParams({ action, ...Object.fromEntries(
-            Object.entries(payload).map(([k,v]) => [k, typeof v === 'object' ? JSON.stringify(v) : v])
-        )});
-        r = await fetch(url + '?' + params.toString(), {
-            method: 'GET',
-            redirect: 'follow'
-        });
+    async function _doFetch() {
+        let r;
+        if (usePost) {
+            const formData = new URLSearchParams();
+            formData.append('action', action);
+            Object.entries(payload).forEach(([k, v]) => {
+                formData.append(k, typeof v === 'object' ? JSON.stringify(v) : v);
+            });
+            r = await fetch(url, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+        } else {
+            const params = new URLSearchParams({ action, ...Object.fromEntries(
+                Object.entries(payload).map(([k,v]) => [k, typeof v === 'object' ? JSON.stringify(v) : v])
+            )});
+            r = await fetch(url + '?' + params.toString(), {
+                method: 'GET',
+                redirect: 'follow',
+                cache: 'no-store'
+            });
+        }
+        if (!r.ok) throw new Error('GAS_HTTP_' + r.status);
+        const text = await r.text();
+        try {
+            return JSON.parse(text);
+        } catch(e) {
+            // GAS บางครั้ง return HTML (error page) แทน JSON
+            console.warn('[gasFetch] non-JSON response for', action, ':', text.slice(0, 200));
+            throw new Error('GAS_NON_JSON');
+        }
     }
-    if (!r.ok) throw new Error('GAS_HTTP_' + r.status);
-    return await r.json();
+
+    // Retry 2 ครั้งถ้า network error
+    let lastErr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            return await _doFetch();
+        } catch(e) {
+            lastErr = e;
+            if (attempt < 1) await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+    throw lastErr;
 }
 
 // ── อ่าน tickets — GAS คือ source of truth, localStorage เป็น offline cache ──
 async function dbGetTickets() {
     try {
         const res = await gasFetch('getTickets');
-        if (res.status === 'ok' && Array.isArray(res.data)) {
-            localStorage.setItem(TICKETS_KEY, JSON.stringify(res.data)); // update cache
-            return res.data;
+        // รองรับ response หลายรูปแบบจาก GAS
+        let data = null;
+        if (res && res.status === 'ok' && Array.isArray(res.data)) {
+            data = res.data;
+        } else if (res && Array.isArray(res.data)) {
+            data = res.data;
+        } else if (Array.isArray(res)) {
+            data = res;
         }
-        throw new Error('bad response');
+        if (data !== null) {
+            localStorage.setItem(TICKETS_KEY, JSON.stringify(data)); // update cache
+            return data;
+        }
+        console.warn('[GAS] dbGetTickets: unexpected response format', JSON.stringify(res).slice(0,200));
+        throw new Error('bad response format');
     } catch(e) {
         console.warn('[GAS] dbGetTickets offline — ใช้ cache', e.message);
         return JSON.parse(localStorage.getItem(TICKETS_KEY)) || []; // offline fallback
@@ -4589,7 +4617,8 @@ async function showAdminPanel() {
     // 9. lucide icons
     if (typeof lucideReinit === 'function') try { lucideReinit(); } catch(e) {}
 
-    // 10. sync server ใน background (ไม่บล็อก UI)
+    // 10. sync server ทันที (ไม่บล็อก UI) — ถ้า cache ว่างให้รีบ sync
+    const _cacheEmpty = adminTickets.length === 0;
     setTimeout(async () => {
         try { await adminRefreshData(); } catch(e) {}
         try {
@@ -6217,8 +6246,29 @@ async function adminRefreshData() {
         adminStaff = newStaff;
         localStorage.setItem(STAFF_KEY, JSON.stringify(adminStaff));
         _renderAll();
+        // อัปเดต gas banner ตาม result จริง
+        const gasBanner = document.getElementById('gas-sync-banner');
+        if (gasBanner) {
+            const count = adminTickets.length;
+            gasBanner.style.display = 'flex';
+            gasBanner.style.background = '#f0fdf4';
+            gasBanner.style.border = '1.5px solid #86efac';
+            gasBanner.style.color = '#15803d';
+            gasBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+                + `<span>Sync สำเร็จ — พบ <strong>${count}</strong> Ticket จาก Google Sheets</span>`;
+            setTimeout(() => updateGasBanner(), 4000);
+        }
     } catch(e) {
         console.warn('[adminRefreshData] GAS sync failed, using cache', e);
+        const gasBanner = document.getElementById('gas-sync-banner');
+        if (gasBanner) {
+            gasBanner.style.display = 'flex';
+            gasBanner.style.background = '#fef2f2';
+            gasBanner.style.border = '1.5px solid #fecaca';
+            gasBanner.style.color = '#dc2626';
+            gasBanner.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+                + `<span>ไม่สามารถ sync จาก Google Sheets ได้: ${e.message} — กำลังใช้ข้อมูล cache</span>`;
+        }
     }
 }
 
@@ -7432,6 +7482,26 @@ function adminRenderAllTickets() {
 
     // count label
     const countEl = document.getElementById('ticket-count-label');
+    if (adminTickets.length === 0) {
+        if (countEl) countEl.textContent = '';
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <p style="font-weight:700;color:#64748b;font-size:.95rem;">ยังไม่มีข้อมูล Ticket</p>
+                <p style="color:#94a3b8;font-size:.82rem;">กำลังโหลดจาก Google Sheets...</p>
+                <button onclick="adminRefreshData()" style="background:linear-gradient(135deg,#2C4A52,#4A7C8A);color:white;border:none;border-radius:10px;padding:9px 20px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    โหลดข้อมูลใหม่
+                </button>
+            </div>
+        </td></tr>`;
+        // auto-refresh ถ้ายังไม่มีข้อมูล
+        if (!window._adminAutoRefreshPending) {
+            window._adminAutoRefreshPending = true;
+            setTimeout(() => { window._adminAutoRefreshPending = false; adminRefreshData(); }, 2000);
+        }
+        return;
+    }
     if (countEl) countEl.textContent = `แสดง ${start+1}–${Math.min(start+PAGE_SIZE, totalItems)} จาก ${totalItems} รายการ`;
 
     const priMap = {
