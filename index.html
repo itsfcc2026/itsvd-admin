@@ -4175,14 +4175,16 @@ async function gasFetch(action, payload = {}) {
 // ── GAS write helper — ส่ง write action ผ่าน GET (GAS doGet รับทุก action) ──
 // สำหรับ payload ใหญ่ (ticket object) → แตก field เป็น param แยก
 async function gasFetchWrite(action, payload = {}) {
-    // ลอง GET ตรงก่อน
+    // ลอง GET ก่อน (simple request ไม่มี preflight)
     try {
         return await gasFetch(action, payload);
     } catch(e) {
         if (e.message !== 'GAS_URL_TOO_LONG') throw e;
     }
 
-    // URL ยาวเกิน → ส่งผ่าน no-cors POST (ไม่ได้ response แต่ GAS รับได้)
+    // URL ยาวเกิน → ส่งผ่าน no-cors POST
+    // สำคัญ: ต้องไม่ส่ง Content-Type header เพื่อให้เป็น "simple request" (ไม่มี preflight)
+    // GAS จะรับ body เป็น raw text แล้ว parse เอง
     console.warn('[gasFetchWrite] URL too long — falling back to no-cors POST for:', action);
     const url = getGasDbUrl();
     const body = new URLSearchParams({ action });
@@ -4192,15 +4194,13 @@ async function gasFetchWrite(action, payload = {}) {
     try {
         await fetch(url, {
             method: 'POST',
-            mode: 'no-cors',       // ไม่ต้อง CORS preflight — GAS รับ POST ได้
-            redirect: 'follow',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            mode: 'no-cors',
             body: body.toString()
+            // ไม่ใส่ Content-Type → browser ถือเป็น simple request → ไม่มี preflight
         });
-        // no-cors → response เป็น opaque (ไม่รู้ผล) → return ok สมมติ
         return { status: 'ok' };
     } catch(postErr) {
-        console.warn('[gasFetchWrite] no-cors POST also failed:', postErr.message);
+        console.warn('[gasFetchWrite] no-cors POST failed:', postErr.message);
         throw postErr;
     }
 }
