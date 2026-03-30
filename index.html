@@ -6780,7 +6780,7 @@ function adminShowSection(sectionId, el) {
     if (sectionId === 'team-performance') setTimeout(renderTeamPerformance, 0);
     if (sectionId === 'google-sheet') setTimeout(gsInitSection, 0);
     if (sectionId === 'users-mgmt') setTimeout(gsInitSection, 0);
-    if (sectionId === 'doc-clarify') setTimeout(() => docShowView('list'), 0);
+    if (sectionId === 'doc-clarify') setTimeout(() => docInitSharedStorage(), 0);
     document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.admin-nav-item').forEach(b => b.classList.remove('active'));
     document.getElementById(`section-${sectionId}`).classList.add('active');
@@ -11419,15 +11419,47 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-function docGetAll() { return JSON.parse(localStorage.getItem(DOC_KEY)) || []; }
-function docSaveAll(docs) { localStorage.setItem(DOC_KEY, JSON.stringify(docs)); }
+// ── Shared storage helpers (ใช้ window.storage เพื่อให้ทุก account มองเห็นข้อมูลเดียวกัน) ──
+let _docCache = null; // cache ใน memory เพื่อการทำงาน sync
+
+async function docGetAllAsync() {
+    try {
+        const result = await window.storage.get(DOC_KEY, true); // shared = true
+        _docCache = result ? JSON.parse(result.value) : [];
+    } catch (e) {
+        _docCache = [];
+    }
+    return _docCache;
+}
+
+async function docSaveAllAsync(docs) {
+    _docCache = docs;
+    try {
+        await window.storage.set(DOC_KEY, JSON.stringify(docs), true); // shared = true
+    } catch (e) {
+        console.error('docSaveAll error:', e);
+    }
+}
+
+// ── sync wrappers ที่ใช้ cache (เพื่อให้ code เดิมทำงานได้) ──
+function docGetAll() { return _docCache || []; }
+function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
+
+// ── โหลดข้อมูลจาก shared storage เมื่อเปิดหน้า doc-clarify ──
+async function docInitSharedStorage() {
+    await docGetAllAsync();
+    docRenderList();
+}
 
 let _docEditId = null;
 
 function docShowView(view) {
     document.getElementById('doc-view-list').style.display = view === 'list' ? '' : 'none';
     document.getElementById('doc-view-form').style.display = view === 'form' ? '' : 'none';
-    if (view === 'list') docRenderList();
+    if (view === 'list') {
+        // โหลดจาก shared storage ก่อน แล้วค่อย render
+        docGetAllAsync().then(() => docRenderList());
+    }
     if (view === 'form') {
         // แสดงปีปัจจุบันเสมอ
         const yearEl = document.getElementById('doc-number-year');
@@ -11582,7 +11614,7 @@ function docEditDocument(id) {
 
 
 
-function docSave(status) {
+async function docSave(status) {
     const number = document.getElementById('doc-number').value.trim();
     const subject = docGetFullSubject();
     if (!number || !subject) {
@@ -11620,15 +11652,16 @@ function docSave(status) {
     } else {
         docs.unshift(docData);
     }
-    docSaveAll(docs);
+    await docSaveAllAsync(docs);
     const label = status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง';
     showToast(`✅ บันทึกเอกสาร "${number}" (${label}) เรียบร้อย`, 'success');
     docShowView('list');
 }
 
-function docDelete(id) {
+async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
-    docSaveAll(docGetAll().filter(d => d.id !== id));
+    const docs = await docGetAllAsync();
+    await docSaveAllAsync(docs.filter(d => d.id !== id));
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
 }
