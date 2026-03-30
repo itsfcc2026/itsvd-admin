@@ -4112,43 +4112,35 @@ function setGasDbUrl(url) {
 }
 
 // ── GAS fetch helper ─────────────────────────────────────────────────────────
+// ใช้ GET เสมอ เพื่อหลีกเลี่ยงปัญหา CORS preflight และ opaque redirect ของ GAS
 async function gasFetch(action, payload = {}) {
     const url = getGasDbUrl();
     if (!url) throw new Error('NO_GAS_URL');
 
-    const usePost = ['saveTickets','addTicket','updateTicket','saveStaff','savePassword'].includes(action);
-
     async function _doFetch() {
-        let r;
-        if (usePost) {
-            const formData = new URLSearchParams();
-            formData.append('action', action);
-            Object.entries(payload).forEach(([k, v]) => {
-                formData.append(k, typeof v === 'object' ? JSON.stringify(v) : v);
-            });
-            r = await fetch(url, {
-                method: 'POST',
-                redirect: 'follow',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
-            });
-        } else {
-            const params = new URLSearchParams({ action, ...Object.fromEntries(
-                Object.entries(payload).map(([k,v]) => [k, typeof v === 'object' ? JSON.stringify(v) : v])
-            )});
-            r = await fetch(url + '?' + params.toString(), {
-                method: 'GET',
-                redirect: 'follow',
-                cache: 'no-store'
-            });
-        }
+        // สร้าง query string — ทุก action ส่งเป็น GET เพื่อให้ GAS ตอบกลับตรงๆ
+        const params = new URLSearchParams({ action });
+        Object.entries(payload).forEach(([k, v]) => {
+            params.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+        });
+
+        // ถ้า payload ใหญ่มาก (saveTickets) ให้ตัด data ออกแล้วส่งทีละ ticket แทน
+        // แต่ในกรณีปกติ GET ได้เลย
+        const fullUrl = url + '?' + params.toString();
+
+        const r = await fetch(fullUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            cache: 'no-store'
+        });
+
         if (!r.ok) throw new Error('GAS_HTTP_' + r.status);
         const text = await r.text();
         try {
             return JSON.parse(text);
         } catch(e) {
             // GAS บางครั้ง return HTML (error page) แทน JSON
-            console.warn('[gasFetch] non-JSON response for', action, ':', text.slice(0, 200));
+            console.warn('[gasFetch] non-JSON response for', action, ':', text.slice(0, 300));
             throw new Error('GAS_NON_JSON');
         }
     }
@@ -4160,7 +4152,7 @@ async function gasFetch(action, payload = {}) {
             return await _doFetch();
         } catch(e) {
             lastErr = e;
-            if (attempt < 1) await new Promise(r => setTimeout(r, 1000));
+            if (attempt < 1) await new Promise(r => setTimeout(r, 1500));
         }
     }
     throw lastErr;
@@ -4170,6 +4162,7 @@ async function gasFetch(action, payload = {}) {
 async function dbGetTickets() {
     try {
         const res = await gasFetch('getTickets');
+        console.log('[dbGetTickets] GAS response:', JSON.stringify(res).slice(0, 300));
         // รองรับ response หลายรูปแบบจาก GAS
         let data = null;
         if (res && res.status === 'ok' && Array.isArray(res.data)) {
@@ -4197,7 +4190,14 @@ async function dbSaveTickets(data) {
     userTickets  = _filterForCurrentUser(data);
     localStorage.setItem(TICKETS_KEY, JSON.stringify(data));   // update cache
     try {
-        await gasFetch('saveTickets', { data });
+        // ถ้า data ไม่เกิน 30 tickets ส่งทั้งก้อน — ถ้ามากกว่านั้นส่งทีละตัวเพื่อป้องกัน URL ยาวเกิน
+        if (data.length <= 30) {
+            await gasFetch('saveTickets', { data });
+        } else {
+            for (const t of data) {
+                await gasFetch('updateTicket', { id: t.id, data: t });
+            }
+        }
     } catch(e) {
         console.warn('[GAS] dbSaveTickets failed (cache saved)', e.message);
     }
@@ -4293,6 +4293,7 @@ function getEffectivePassword(username) {
 // ── syncTickets: ดึงจาก GAS เสมอ, กรอง deleted blacklist, แยก admin/user ────
 async function syncTickets() {
     const data = await dbGetTickets(); // GAS first, offline cache fallback
+    console.log('[syncTickets] ได้รับ', data.length, 'tickets จาก GAS/cache');
     const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
     const filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
     adminTickets = filtered;                          // admin/staff เห็นทั้งหมด
