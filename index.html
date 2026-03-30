@@ -4256,8 +4256,13 @@ async function dbAddTicket(ticket) {
     if (!adminTickets.find(t => t.id === ticket.id)) adminTickets.unshift(ticket);
     localStorage.setItem(TICKETS_KEY, JSON.stringify(adminTickets)); // update cache
     // ส่งขึ้น GAS — throw ถ้าล้มเหลวเพื่อให้ caller รับรู้
+    console.log('[dbAddTicket] กำลังส่ง ticket ขึ้น GAS:', ticket.id, '| URL:', getGasDbUrl()?.slice(0,60));
     const res = await gasFetchWrite('addTicket', { data: ticket });
-    console.log('[dbAddTicket] GAS response:', JSON.stringify(res).slice(0, 200));
+    console.log('[dbAddTicket] GAS ตอบกลับ:', JSON.stringify(res).slice(0, 200));
+    if (res && res.status === 'error') {
+        console.error('[dbAddTicket] GAS error:', res.message);
+        throw new Error('GAS_ERROR: ' + res.message);
+    }
     return res;
 }
 
@@ -6300,17 +6305,36 @@ async function adminRefreshData() {
         adminStaff = newStaff;
         localStorage.setItem(STAFF_KEY, JSON.stringify(adminStaff));
         _renderAll();
-        // อัปเดต gas banner ตาม result จริง
         const gasBanner = document.getElementById('gas-sync-banner');
         if (gasBanner) {
             const count = adminTickets.length;
+            const localCount = (JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]')).length;
             gasBanner.style.display = 'flex';
-            gasBanner.style.background = '#f0fdf4';
-            gasBanner.style.border = '1.5px solid #86efac';
-            gasBanner.style.color = '#15803d';
-            gasBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-                + `<span>Sync สำเร็จ — พบ <strong>${count}</strong> Ticket จาก Google Sheets</span>`;
-            setTimeout(() => updateGasBanner(), 4000);
+            if (count === 0 && localCount > 0) {
+                // GAS Sheet ว่าง แต่ cache มีข้อมูล → แสดงปุ่มกู้คืน
+                gasBanner.style.background = '#fef9c3';
+                gasBanner.style.border = '1.5px solid #fde047';
+                gasBanner.style.color = '#854d0e';
+                gasBanner.style.flexWrap = 'wrap';
+                gasBanner.style.gap = '8px';
+                gasBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+                    + `<span style="flex:1">Google Sheet ว่างเปล่า แต่พบข้อมูล <strong>${localCount} Ticket</strong> ใน cache — กดปุ่มเพื่ออัปโหลดขึ้น Sheet</span>`
+                    + `<button onclick="uploadCacheToGAS()" style="background:#854d0e;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:.8rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;">⬆ อัปโหลด ${localCount} Ticket ขึ้น Sheet</button>`;
+            } else if (count === 0) {
+                gasBanner.style.background = '#f0fdf4';
+                gasBanner.style.border = '1.5px solid #86efac';
+                gasBanner.style.color = '#15803d';
+                gasBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+                    + '<span>เชื่อมต่อ Google Sheets แล้ว — ยังไม่มี Ticket ในระบบ</span>';
+                setTimeout(() => updateGasBanner(), 8000);
+            } else {
+                gasBanner.style.background = '#f0fdf4';
+                gasBanner.style.border = '1.5px solid #86efac';
+                gasBanner.style.color = '#15803d';
+                gasBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+                    + `<span>Sync สำเร็จ — พบ <strong>${count}</strong> Ticket จาก Google Sheets</span>`;
+                setTimeout(() => updateGasBanner(), 8000);
+            }
         }
     } catch(e) {
         console.warn('[adminRefreshData] GAS sync failed, using cache', e);
@@ -6324,6 +6348,32 @@ async function adminRefreshData() {
                 + `<span>ไม่สามารถ sync จาก Google Sheets ได้: ${e.message} — กำลังใช้ข้อมูล cache</span>`;
         }
     }
+}
+
+// ── อัปโหลด tickets จาก localStorage ขึ้น GAS Sheet (กู้คืนข้อมูล) ──────────
+async function uploadCacheToGAS() {
+    const cached = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
+    if (cached.length === 0) { showToast('ไม่มีข้อมูลใน cache', 'error'); return; }
+
+    const gasBanner = document.getElementById('gas-sync-banner');
+    if (gasBanner) {
+        gasBanner.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;animation:spin .8s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`
+            + `<span>กำลังอัปโหลด ${cached.length} Ticket ขึ้น Google Sheet...</span>`;
+    }
+
+    let ok = 0, fail = 0;
+    for (const ticket of cached) {
+        try {
+            await gasFetch('addTicket', { data: ticket });
+            ok++;
+        } catch(e) {
+            console.warn('[uploadCacheToGAS] ล้มเหลวสำหรับ', ticket.id, e.message);
+            fail++;
+        }
+    }
+
+    showToast(`อัปโหลดสำเร็จ ${ok} Ticket${fail > 0 ? ` (ล้มเหลว ${fail})` : ''}`, fail > 0 ? 'warning' : 'success');
+    await adminRefreshData();
 }
 
 function updateAdminStats() {
