@@ -8,18 +8,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #1e40af;
-            --primary-light: #3b82f6;
-            --accent: #0ea5e9;
+            --primary: #2C4A52;
+            --primary-light: #4A7C8A;
+            --accent: #5BA3B0;
             --success: #16a34a;
             --warning: #d97706;
             --danger: #dc2626;
             --bg: #374C57;
             --card: #ffffff;
-            --border: #e2e8f0;
+            --border: #C8D8DC;
             --text-main: #1e293b;
             --text-muted: #64748b;
-            --sidebar-bg: #0f172a;
+            --sidebar-bg: #243640;
             --nav-height: 64px;
         }
 
@@ -40,7 +40,7 @@
         /* ===================== LOGIN OVERLAY ===================== */
         #login-overlay {
             position: fixed; inset: 0;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            background: linear-gradient(135deg, #1C2E35 0%, #2C4A52 50%, #1C2E35 100%);
             display: none; align-items: flex-start; justify-content: center;
             z-index: 9999;
             overflow-y: auto;
@@ -91,11 +91,11 @@
         }
         .login-logo .icon-wrap {
             width: 72px; height: 72px;
-            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            background: linear-gradient(135deg, #4A7C8A, #5BA3B0);
             border-radius: 20px;
             display: inline-flex; align-items: center; justify-content: center;
             margin-bottom: 1rem;
-            box-shadow: 0 8px 20px rgba(59,130,246,0.4);
+            box-shadow: 0 8px 20px rgba(91,163,176,0.4);
         }
         .login-logo h1 { color: white; font-size: 1.5rem; font-weight: 800; }
         .login-logo p { color: rgba(255,255,255,0.5); font-size: 0.9rem; margin-top: 4px; }
@@ -130,14 +130,14 @@
         .login-input::placeholder { color: rgba(255,255,255,0.3); }
         .login-input:focus {
             outline: none;
-            border-color: var(--primary-light);
+            border-color: #5BA3B0;
             background: rgba(255,255,255,0.12);
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+            box-shadow: 0 0 0 3px rgba(91,163,176,0.2);
         }
 
         .login-btn {
             width: 100%;
-            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            background: linear-gradient(135deg, #4A7C8A, #5BA3B0);
             color: white;
             border: none;
             border-radius: 12px;
@@ -149,9 +149,9 @@
             transition: all 0.2s;
             display: flex; align-items: center; justify-content: center; gap: 8px;
             margin-top: 0.5rem;
-            box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+            box-shadow: 0 4px 15px rgba(74,124,138,0.4);
         }
-        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59,130,246,0.5); }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(74,124,138,0.5); }
         .login-btn:active { transform: translateY(0); }
 
         .login-error {
@@ -194,7 +194,7 @@
 
         /* ---- TOPBAR ---- */
         .user-topbar {
-            background: white;
+            background: #243640;
             height: var(--nav-height);
             display: flex;
             align-items: center;
@@ -203,8 +203,8 @@
             position: fixed;
             top: 0; left: 0; right: 0;
             z-index: 500;
-            border-bottom: 1px solid var(--border);
-            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            border-bottom: 1px solid #1C2E35;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.18);
         }
 
         .nav-brand {
@@ -215,29 +215,29 @@
             font-size: 1.2rem;
             font-weight: 700;
             letter-spacing: 0.5px;
-            color: var(--primary);
+            color: #A8D4DB;
             cursor: pointer;
             white-space: nowrap;
         }
         .nav-brand [data-user-name]:empty { display: none; }
         .nav-brand .brand-name-it {
-            color: var(--primary);
+            color: #A8D4DB;
         }
         .nav-brand .brand-name-support {
-            color: var(--primary-light);
+            color: #5BA3B0;
             font-weight: 600;
         }
         .nav-brand .brand-name-portal {
-            color: #94a3b8;
+            color: #7A9DA5;
             font-weight: 600;
             font-size: 1rem;
         }
         .nav-brand .brand-icon {
             width: 42px; height: 42px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background: linear-gradient(135deg, #2C4A52, #4A7C8A);
             border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 3px 10px rgba(30,64,175,0.3);
+            box-shadow: 0 3px 10px rgba(44,74,82,0.4);
             flex-shrink: 0;
         }
 
@@ -277,8 +277,8 @@
         }
 
         .btn-admin-switch {
-            background: linear-gradient(135deg, #0f172a, #1e3a5f);
-            color: white;
+            background: linear-gradient(135deg, #1C2E35, #2C4A52);
+            color: #A8D4DB;
             border: none;
             padding: 7px 16px;
             border-radius: 8px;
@@ -304,8 +304,8 @@
         .user-sidebar {
             width: 240px;
             flex-shrink: 0;
-            background: white;
-            border-right: 1px solid var(--border);
+            background: #243640;
+            border-right: 1px solid #1C2E35;
             position: fixed;
             top: var(--nav-height);
             left: 0;
@@ -320,7 +320,7 @@
         .sidebar-section-title {
             font-size: 0.65rem;
             font-weight: 800;
-            color: #94a3b8;
+            color: #7A9DA5;
             text-transform: uppercase;
             letter-spacing: 1.2px;
             padding: 0 0.5rem;
@@ -338,7 +338,7 @@
             cursor: pointer;
             font-size: 0.95rem;
             font-weight: 600;
-            color: #475569;
+            color: #A8C4CC;
             transition: all 0.18s;
             border: none;
             background: transparent;
@@ -348,29 +348,29 @@
             text-decoration: none;
             margin-bottom: 2px;
         }
-        .user-nav-item:hover { background: #eff6ff; color: var(--primary); }
+        .user-nav-item:hover { background: #2C4A52; color: #C8E4E9; }
         .user-nav-item.active {
-            background: linear-gradient(135deg, #1e40af, #2563eb);
+            background: linear-gradient(135deg, #2C4A52, #4A7C8A);
             color: white;
-            box-shadow: 0 3px 10px rgba(30,64,175,0.25);
+            box-shadow: 0 3px 10px rgba(44,74,82,0.35);
         }
         .user-nav-item .nav-icon {
             width: 32px; height: 32px;
             border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
-            background: #f1f5f9;
+            background: rgba(255,255,255,0.08);
             transition: all 0.18s;
         }
         .user-nav-item.active .nav-icon {
             background: rgba(255,255,255,0.2);
         }
-        .user-nav-item:hover:not(.active) .nav-icon { background: #dbeafe; }
+        .user-nav-item:hover:not(.active) .nav-icon { background: rgba(91,163,176,0.2); }
 
         .sidebar-contact {
             margin-top: auto;
-            background: linear-gradient(145deg, #eff6ff, #dbeafe);
-            border: 1.5px solid #bfdbfe;
+            background: linear-gradient(145deg, #2C4A52, #243640);
+            border: 1.5px solid #4A7C8A;
             border-radius: 16px;
             padding: 1rem 1.1rem 1.1rem;
             position: relative;
@@ -381,7 +381,7 @@
             position: absolute;
             top: -25px; right: -25px;
             width: 70px; height: 70px;
-            background: rgba(59,130,246,0.08);
+            background: rgba(91,163,176,0.12);
             border-radius: 50%;
         }
         .sidebar-contact-header {
@@ -413,7 +413,7 @@
         }
         .sidebar-contact-header p {
             font-size: 0.78rem;
-            color: #1e40af;
+            color: #A8D4DB;
             font-weight: 800;
             letter-spacing: 0.3px;
             margin: 0;
@@ -439,13 +439,13 @@
         /* Blink dots */
         .blink-ho {
             width: 10px; height: 10px;
-            background: #2563eb;
+            background: #4A7C8A;
             border-radius: 50%;
             animation: blinkHO 1.4s ease-in-out infinite;
         }
         @keyframes blinkHO {
-            0%,100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.7); background: #1d4ed8; }
-            50%     { box-shadow: 0 0 0 5px rgba(37,99,235,0); background: #60a5fa; }
+            0%,100% { box-shadow: 0 0 0 0 rgba(74,124,138,0.7); background: #2C4A52; }
+            50%     { box-shadow: 0 0 0 5px rgba(74,124,138,0); background: #5BA3B0; }
         }
         .blink-farm {
             width: 10px; height: 10px;
@@ -460,8 +460,8 @@
         }
         .contact-emoji-ho {
             width: 26px; height: 26px;
-            background: linear-gradient(135deg,#eff6ff,#dbeafe);
-            border: 1px solid #93c5fd;
+            background: linear-gradient(135deg,#E8F2F4,#D0E8EC);
+            border: 1px solid #A8D4DB;
             border-radius: 7px;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
@@ -476,7 +476,7 @@
         }
         .sidebar-divider {
             height: 1px;
-            background: rgba(59,130,246,0.15);
+            background: rgba(91,163,176,0.25);
             margin: 0 0 10px;
         }
         .sidebar-contact .contact-item {
@@ -484,31 +484,31 @@
             align-items: center;
             gap: 8px;
             font-size: 0.79rem;
-            color: #475569;
+            color: #A8C4CC;
             margin-bottom: 7px;
             position: relative;
         }
         .sidebar-contact .contact-item:last-child { margin-bottom: 0; }
         .sidebar-contact .contact-emoji {
             width: 26px; height: 26px;
-            background: white;
-            border: 1px solid #bfdbfe;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(91,163,176,0.3);
             border-radius: 7px;
             display: flex; align-items: center; justify-content: center;
             font-size: 0.85rem;
             flex-shrink: 0;
-            box-shadow: 0 1px 3px rgba(59,130,246,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
         .sidebar-contact .contact-label {
             font-size: 0.72rem;
-            color: #94a3b8;
+            color: #7A9DA5;
             font-weight: 600;
             line-height: 1.1;
         }
         .sidebar-contact .contact-number {
             font-size: 0.82rem;
             font-weight: 800;
-            color: #1e40af;
+            color: #C8E4E9;
             line-height: 1.2;
             letter-spacing: 0.2px;
         }
@@ -723,7 +723,7 @@
             width: calc(100% - 400px - 1.2rem);
         }
         .home-hero {
-            background: linear-gradient(135deg, #93c5fd 0%, #bae6fd 100%);
+            background: linear-gradient(135deg, #2C4A52 0%, #4A7C8A 100%);
             border-radius: 16px;
             padding: 1.4rem 2rem;
             margin-bottom: 0;
@@ -841,9 +841,9 @@
             display: none;
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            background: white;
-            border-top: 1px solid var(--border);
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            background: #243640;
+            border-top: 1px solid #1C2E35;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
             z-index: 99999;
             padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
             pointer-events: auto;
@@ -862,7 +862,7 @@
             border: none;
             background: transparent;
             cursor: pointer;
-            color: #94a3b8;
+            color: #7A9DA5;
             font-family: 'Sarabun', sans-serif;
             font-size: 0.65rem;
             font-weight: 700;
@@ -875,12 +875,12 @@
             pointer-events: auto;
         }
         .mobile-nav-btn.active {
-            color: var(--primary);
+            color: #5BA3B0;
         }
         .mobile-nav-btn.active svg {
-            stroke: var(--primary);
+            stroke: #5BA3B0;
         }
-        .mobile-nav-btn svg { stroke: #94a3b8; transition: stroke 0.2s; }
+        .mobile-nav-btn svg { stroke: #7A9DA5; transition: stroke 0.2s; }
         .mobile-nav-dot {
             position: absolute;
             top: 4px; right: 8px;
@@ -895,17 +895,17 @@
         /* ===================== MOBILE HAMBURGER MENU ===================== */
         #mobile-menu-btn {
             display: none;
-            background: #f1f5f9;
-            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
             border-radius: 9px;
             padding: 7px;
             cursor: pointer;
-            color: var(--text-main);
+            color: #A8D4DB;
             align-items: center;
             justify-content: center;
             transition: 0.2s;
         }
-        #mobile-menu-btn:hover { background: #dbeafe; }
+        #mobile-menu-btn:hover { background: rgba(91,163,176,0.2); }
 
         /* ===================== MOBILE DRAWER ===================== */
         #mobile-drawer-overlay {
@@ -931,7 +931,7 @@
         }
         #mobile-drawer.open { transform: translateX(0); }
         .mobile-drawer-header {
-            background: linear-gradient(135deg, #0f172a, #1e3a5f);
+            background: linear-gradient(135deg, #1C2E35, #2C4A52);
             padding: 1.5rem 1.2rem 1.2rem;
             display: flex;
             align-items: center;
@@ -945,7 +945,7 @@
             color: white;
             letter-spacing: 0.5px;
         }
-        .mobile-drawer-logo span { color: #60a5fa; }
+        .mobile-drawer-logo span { color: #5BA3B0; }
         .mobile-drawer-close {
             background: rgba(255,255,255,0.1);
             border: none;
@@ -979,19 +979,19 @@
             margin-bottom: 4px;
             transition: all 0.18s;
         }
-        .mobile-drawer-item:hover { background: #eff6ff; color: var(--primary); }
+        .mobile-drawer-item:hover { background: #E8F2F4; color: #2C4A52; }
         .mobile-drawer-item.active {
-            background: linear-gradient(135deg, #1e40af, #2563eb);
+            background: linear-gradient(135deg, #2C4A52, #4A7C8A);
             color: white;
-            box-shadow: 0 3px 10px rgba(30,64,175,0.25);
+            box-shadow: 0 3px 10px rgba(44,74,82,0.3);
         }
         .mobile-drawer-footer {
             padding: 1rem;
             border-top: 1px solid var(--border);
         }
         .mobile-drawer-contact {
-            background: linear-gradient(145deg, #eff6ff, #dbeafe);
-            border: 1.5px solid #bfdbfe;
+            background: linear-gradient(145deg, #E8F2F4, #D0E8EC);
+            border: 1.5px solid #A8D4DB;
             border-radius: 14px;
             padding: 0.9rem 1rem;
             margin-top: 0.5rem;
@@ -999,7 +999,7 @@
         .mobile-drawer-contact-title {
             font-size: 0.75rem;
             font-weight: 800;
-            color: #1e40af;
+            color: #2C4A52;
             margin-bottom: 8px;
             display: flex;
             align-items: center;
@@ -1010,7 +1010,7 @@
             align-items: center;
             gap: 8px;
             font-size: 0.8rem;
-            color: #475569;
+            color: #374C57;
             margin-bottom: 6px;
             font-weight: 600;
         }
@@ -1021,9 +1021,9 @@
             position: fixed;
             top: 0; left: 0; right: 0;
             height: 52px;
-            background: white;
-            border-bottom: 1px solid var(--border);
-            box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+            background: #243640;
+            border-bottom: 1px solid #1C2E35;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.2);
             z-index: 9990;
             align-items: center;
             justify-content: space-between;
@@ -1034,9 +1034,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #eff6ff;
-            border: 1.5px solid #bfdbfe;
-            color: var(--primary);
+            background: rgba(91,163,176,0.15);
+            border: 1.5px solid rgba(91,163,176,0.3);
+            color: #A8D4DB;
             border-radius: 10px;
             width: 42px; height: 42px;
             cursor: pointer;
@@ -1045,11 +1045,11 @@
             touch-action: manipulation;
             flex-shrink: 0;
         }
-        #admin-mobile-menu-btn:active { background: #bfdbfe; }
+        #admin-mobile-menu-btn:active { background: rgba(91,163,176,0.3); }
         #admin-mobile-topbar .adm-topbar-brand {
             font-family: 'Orbitron', sans-serif;
             font-size: 0.95rem; font-weight: 800;
-            background: linear-gradient(135deg,#1e3a8a,#3b82f6);
+            background: linear-gradient(135deg, #A8D4DB, #5BA3B0);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text; letter-spacing: 1px; white-space: nowrap;
         }
@@ -1139,10 +1139,10 @@
                 align-items: center;
                 justify-content: space-between;
                 padding: 14px 16px 10px;
-                border-bottom: 1px solid #e2e8f0;
+                border-bottom: 1px solid #2C4A52;
                 margin-bottom: 8px;
                 position: sticky; top: 0;
-                background: white; z-index: 2;
+                background: #243640; z-index: 2;
             }
             .admin-sidebar * { touch-action: manipulation; }
 
@@ -1356,8 +1356,8 @@
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: var(--primary-light);
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+            border-color: #4A7C8A;
+            box-shadow: 0 0 0 3px rgba(74,124,138,0.12);
         }
 
         /* ===================== TICKET CARD GRID ===================== */
@@ -1393,7 +1393,7 @@
         .ticket-card-id {
             font-size: 1rem;
             font-weight: 900;
-            color: #1e40af;
+            color: #2C4A52;
             background: transparent;
             padding: 0;
             border-radius: 0;
@@ -1478,7 +1478,7 @@
             to   { opacity:1; transform: translateY(0) scale(1); }
         }
         .td-header {
-            background: linear-gradient(135deg,#1e40af,#0ea5e9);
+            background: linear-gradient(135deg,#2C4A52,#4A7C8A);
             border-radius: 20px 20px 0 0;
             padding: 18px 20px 14px;
             display: flex;
@@ -1635,7 +1635,7 @@
             font-weight: 700;
             white-space: nowrap;
         }
-        .status-Open { background: #dbeafe; color: #1e40af; }
+        .status-Open { background: #D0E8EC; color: #2C4A52; }
         .status-InProgress { background: #fef9c3; color: #854d0e; }
         .status-Resolved { background: #dcfce7; color: #166534; }
         .status-Fixed { background: #ede9fe; color: #5b21b6; }
@@ -1643,8 +1643,8 @@
         /* ===================== ADMIN PANEL ===================== */
         .admin-sidebar {
             width: 220px;
-            background: #e8f0fe;
-            color: #1e293b;
+            background: #243640;
+            color: #A8C4CC;
             padding: 1.5rem 1rem;
             display: flex;
             flex-direction: column;
@@ -1652,8 +1652,8 @@
             height: 100vh;
             z-index: 100;
             overflow-y: auto;
-            border-right: 1px solid #c7d9fc;
-            box-shadow: 2px 0 16px rgba(30,64,175,0.1);
+            border-right: 1px solid #1C2E35;
+            box-shadow: 2px 0 16px rgba(0,0,0,0.2);
         }
 
         /* ซ่อน close row บน desktop */
@@ -1664,7 +1664,7 @@
             align-items: center;
             gap: 10px;
             padding: 0.5rem 0 1.5rem;
-            border-bottom: 1px solid #bdd0fa;
+            border-bottom: 1px solid #2C4A52;
             margin-bottom: 1.5rem;
         }
         .sidebar-logo .logo-icon { display: none; }
@@ -1673,7 +1673,7 @@
             font-size: 1.45rem;
             font-weight: 800;
             letter-spacing: 2px;
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 40%, #3b82f6 100%);
+            background: linear-gradient(135deg, #A8D4DB 0%, #5BA3B0 50%, #4A7C8A 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -1685,14 +1685,14 @@
             font-weight: 800;
             letter-spacing: 3.5px;
             text-transform: uppercase;
-            color: #64748b;
+            color: #7A9DA5;
             margin-top: 3px;
         }
 
         .sidebar-section-label {
             font-size: 0.68rem;
             font-weight: 800;
-            color: #3b5bdb;
+            color: #5BA3B0;
             text-transform: uppercase;
             letter-spacing: 1.2px;
             padding: 0 0.5rem;
@@ -1704,7 +1704,7 @@
             align-items: center;
             gap: 10px;
             padding: 10px 12px;
-            color: #1e3a8a;
+            color: #A8C4CC;
             border-radius: 10px;
             margin-bottom: 3px;
             cursor: pointer;
@@ -1721,27 +1721,27 @@
             text-overflow: ellipsis;
         }
         .admin-nav-item:hover {
-            background: #c7d9fc;
-            color: #1e3a8a;
+            background: #2C4A52;
+            color: #C8E4E9;
         }
         .admin-nav-item.active {
-            background: linear-gradient(135deg, #1e40af, #2563eb);
+            background: linear-gradient(135deg, #2C4A52, #4A7C8A);
             color: white;
             font-weight: 700;
             border-left: none;
-            box-shadow: 0 3px 10px rgba(30,64,175,0.3);
+            box-shadow: 0 3px 10px rgba(44,74,82,0.35);
         }
 
         .sidebar-bottom {
             margin-top: auto;
             padding-top: 1rem;
-            border-top: 1px solid #bdd0fa;
+            border-top: 1px solid #2C4A52;
         }
         .btn-logout {
             width: 100%;
-            background: #fff0f0;
-            color: #dc2626;
-            border: 1px solid #fecaca;
+            background: rgba(220,38,38,0.1);
+            color: #fca5a5;
+            border: 1px solid rgba(220,38,38,0.3);
             border-radius: 10px;
             padding: 10px 12px;
             font-size: 0.9rem;
@@ -1753,12 +1753,12 @@
             gap: 8px;
             transition: 0.2s;
         }
-        .btn-logout:hover { background: #fee2e2; color: #b91c1c; }
+        .btn-logout:hover { background: rgba(220,38,38,0.2); color: #fecaca; }
         .btn-user-portal {
             width: 100%;
-            background: white;
-            color: #1e40af;
-            border: 1px solid #bfdbfe;
+            background: rgba(91,163,176,0.1);
+            color: #A8D4DB;
+            border: 1px solid rgba(91,163,176,0.25);
             border-radius: 10px;
             padding: 10px 12px;
             font-size: 0.9rem;
@@ -1771,7 +1771,7 @@
             margin-bottom: 8px;
             transition: 0.2s;
         }
-        .btn-user-portal:hover { background: #dbeafe; color: #1e3a8a; }
+        .btn-user-portal:hover { background: rgba(91,163,176,0.2); color: #C8E4E9; }
 
         #view-admin-panel {
             display: none;
@@ -1788,7 +1788,7 @@
             height: 100vh;
             overflow-y: auto;
             overflow-x: hidden;
-            background: #f8fafc;
+            background: #EEF3F5;
             max-width: calc(100vw - 220px);
             box-sizing: border-box;
             -webkit-overflow-scrolling: touch;
@@ -1907,8 +1907,8 @@
         }
         .badge-Open { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
         .badge-Open::before { background: #f97316; }
-        .badge-InProgress { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-        .badge-InProgress::before { background: #3b82f6; }
+        .badge-InProgress { background: #E8F2F4; color: #2C4A52; border: 1px solid #A8D4DB; }
+        .badge-InProgress::before { background: #4A7C8A; }
         .badge-Fixed { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
         .badge-Fixed::before { background: #7c3aed; }
         .badge-Resolved { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
@@ -1928,7 +1928,7 @@
             font-weight: 600;
             font-family: 'Sarabun', sans-serif;
         }
-        .btn-icon:hover { background: #eff6ff; border-color: var(--primary-light); color: var(--primary-light); }
+        .btn-icon:hover { background: #E8F2F4; border-color: var(--primary-light); color: var(--primary-light); }
 
         .btn-admin-primary {
             background: var(--primary);
@@ -2211,7 +2211,7 @@
         }
         .pri-card { box-shadow: 0 1px 4px rgba(0,0,0,.06); }
         .pri-card:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.10); }
-        .pri-card.selected-Low      { border-color:#2563eb !important; background:#eff6ff !important; box-shadow:0 0 0 3px rgba(37,99,235,.18),0 4px 14px rgba(37,99,235,.15); }
+        .pri-card.selected-Low      { border-color:#4A7C8A !important; background:#E8F2F4 !important; box-shadow:0 0 0 3px rgba(37,99,235,.18),0 4px 14px rgba(37,99,235,.15); }
         .pri-card.selected-Medium   { border-color:#0d9488 !important; background:#f0fdfa !important; box-shadow:0 0 0 3px rgba(13,148,136,.18),0 4px 14px rgba(13,148,136,.15); }
         .pri-card.selected-High     { border-color:#ea580c !important; background:#fff7ed !important; box-shadow:0 0 0 3px rgba(234,88,12,.18),0 4px 14px rgba(234,88,12,.15); }
         .pri-card.selected-Critical { border-color:#dc2626 !important; background:#fef2f2 !important; box-shadow:0 0 0 3px rgba(220,38,38,.18),0 4px 14px rgba(220,38,38,.18); }
@@ -2259,7 +2259,7 @@
         #users-table-wrap .u-btn:hover { opacity: .75; }
         #users-table-wrap .u-btn-ban   { border: 1.5px solid #fecaca !important; background: #fff1f2; color: #dc2626; }
         #users-table-wrap .u-btn-ok    { border: 1.5px solid #bbf7d0 !important; background: #f0fdf4; color: #16a34a; }
-        #users-table-wrap .u-btn-pass  { border: 1.5px solid #bfdbfe !important; background: #eff6ff; color: #1d4ed8; }
+        #users-table-wrap .u-btn-pass  { border: 1.5px solid #A8D4DB !important; background: #E8F2F4; color: #2C4A52; }
         #users-table-wrap .u-btn-del   { border: 1.5px solid #fecaca !important; background: #fff1f2; color: #dc2626; }
     </style>
 </head>
@@ -2488,11 +2488,11 @@
 
     <aside class="admin-sidebar">
         <!-- Accent bar top -->
-        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#1e40af,#3b82f6,#38bdf8);border-radius:0;"></div>
+        <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#2C4A52,#4A7C8A,#5BA3B0);border-radius:0;"></div>
 
         <!-- Mobile close button row -->
         <div class="mob-sidebar-close-row">
-            <span style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:800;color:#1e40af;">IT ADMIN</span>
+            <span style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:800;color:#4A7C8A;">IT ADMIN</span>
             <button onclick="closeAdminDrawer()" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -2504,7 +2504,7 @@
             </div>
             <div>
                 <span>IT ADMIN</span>
-                <small id="admin-display-name" style="font-size:.9rem;font-weight:800;color:#1e40af;letter-spacing:.2px;">สวัสดี ADMIN</small>
+                <small id="admin-display-name" style="font-size:.9rem;font-weight:800;color:#2C4A52;letter-spacing:.2px;">สวัสดี ADMIN</small>
             </div>
         </div>
 
@@ -2539,7 +2539,7 @@
         <button id="nav-users-mgmt" class="admin-nav-item" onclick="adminShowSection('users-mgmt', this)">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span>จัดการ Users</span>
-            <span id="admin-badge-users" style="display:none;margin-left:auto;background:#3b82f6;color:white;font-size:0.72rem;padding:1px 8px;border-radius:20px;font-weight:700;"></span>
+            <span id="admin-badge-users" style="display:none;margin-left:auto;background:#4A7C8A;color:white;font-size:0.72rem;padding:1px 8px;border-radius:20px;font-weight:700;"></span>
         </button>
 
         <div class="sidebar-bottom">
@@ -2582,7 +2582,7 @@
                         </div>
 
 
-                        <button onclick="adminRefreshData()" style="background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(30,64,175,0.3);transition:.2s;"
+                        <button onclick="adminRefreshData()" style="background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(44,74,82,0.3);transition:.2s;"
                             onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                             <span data-i18n="adm_dash_refresh">รีเฟรช</span>
@@ -2606,20 +2606,20 @@
 
                         <!-- Total -->
                         <div style="background:white;border-radius:12px;padding:.7rem .9rem;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#1e40af,#3b82f6);"></div>
+                            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#2C4A52,#4A7C8A);"></div>
                             <div style="display:flex;align-items:center;gap:9px;">
-                                <div style="background:#dbeafe;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                <div style="background:#D0E8EC;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4A7C8A" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                                 </div>
                                 <div style="flex:1;min-width:0;">
                                     <p style="font-size:0.68rem;color:#64748b;font-weight:700;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" data-i18n="adm_kpi_total">แจ้งซ่อมทั้งหมด</p>
                                     <div style="display:flex;align-items:baseline;gap:4px;">
-                                        <div id="kpi-total" style="font-size:1.5rem;font-weight:900;color:#1e40af;line-height:1.1;">0</div>
+                                        <div id="kpi-total" style="font-size:1.5rem;font-weight:900;color:#2C4A52;line-height:1.1;">0</div>
                                         <span style="font-size:0.62rem;color:#94a3b8;" data-i18n="adm_kpi_total_sub">Total Requests</span>
                                     </div>
                                 </div>
                             </div>
-                            <div style="margin-top:6px;height:2px;background:#f1f5f9;border-radius:99px;"><div id="kpi-total-bar" style="height:100%;background:linear-gradient(90deg,#1e40af,#3b82f6);border-radius:99px;width:100%;transition:.6s;"></div></div>
+                            <div style="margin-top:6px;height:2px;background:#f1f5f9;border-radius:99px;"><div id="kpi-total-bar" style="height:100%;background:linear-gradient(90deg,#2C4A52,#4A7C8A);border-radius:99px;width:100%;transition:.6s;"></div></div>
                         </div>
 
                         <!-- Resolved -->
@@ -2724,7 +2724,7 @@
                     <!-- Card header -->
                     <div style="padding:.75rem 1.4rem;border-bottom:1px solid #f1f5f9;background:linear-gradient(90deg,#f8faff,#ffffff);display:flex;align-items:center;justify-content:space-between;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <div style="width:4px;height:18px;background:linear-gradient(180deg,#3b82f6,#1e40af);border-radius:99px;"></div>
+                            <div style="width:4px;height:18px;background:linear-gradient(180deg,#4A7C8A,#2C4A52);border-radius:99px;"></div>
                             <span style="font-size:.9rem;font-weight:800;color:#1e293b;letter-spacing:.2px;">Ticket Overview Analysis</span>
                         </div>
                         <span style="font-size:.72rem;color:#94a3b8;font-weight:500;">Ticket Overview Analysis</span>
@@ -2772,7 +2772,7 @@
                     <!-- SLA Header -->
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1rem;">
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;">
+                            <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             </div>
                             <div>
@@ -2784,7 +2784,7 @@
                         <div style="display:flex;align-items:center;gap:6px;">
                             <div style="display:flex;background:#f1f5f9;border-radius:9px;padding:3px;gap:2px;">
                                 <button id="sla-tab-month" onclick="slaSwitchMode('month')"
-                                    style="padding:5px 14px;border-radius:7px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:white;color:#1e40af;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:.2s;">
+                                    style="padding:5px 14px;border-radius:7px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:white;color:#2C4A52;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:.2s;">
                                     รายเดือน
                                 </button>
                                 <button id="sla-tab-year" onclick="slaSwitchMode('year')"
@@ -2796,14 +2796,14 @@
                             <div style="display:flex;align-items:center;gap:4px;background:#f8faff;border:1px solid #e0eaff;border-radius:9px;padding:4px 8px;">
                                 <button id="sla-nav-prev" onclick="slaNav(-1)"
                                     style="width:26px;height:26px;border-radius:6px;border:none;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);transition:.15s;"
-                                    onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                                    onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='white'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4A7C8A" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
                                 </button>
                                 <span id="sla-period-label" style="font-size:.82rem;font-weight:800;color:#1e293b;min-width:100px;text-align:center;">-</span>
                                 <button id="sla-nav-next" onclick="slaNav(1)"
                                     style="width:26px;height:26px;border-radius:6px;border:none;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);transition:.15s;"
-                                    onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='white'">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1e40af" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                                    onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='white'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4A7C8A" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -3013,7 +3013,7 @@
                     <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;margin-top:2px;">รอรับงาน</div>
                 </div>
                 <div style="flex:1;background:white;border-radius:12px;padding:10px 12px;border:1.5px solid #e8eef6;box-shadow:0 1px 4px rgba(30,64,175,0.06);text-align:center;">
-                    <div id="mqs-progress" style="font-size:1.6rem;font-weight:900;color:#2563eb;line-height:1;">0</div>
+                    <div id="mqs-progress" style="font-size:1.6rem;font-weight:900;color:#4A7C8A;line-height:1;">0</div>
                     <div style="font-size:0.65rem;font-weight:700;color:#94a3b8;margin-top:2px;">กำลังดำเนินการ</div>
                 </div>
                 <div style="flex:1;background:white;border-radius:12px;padding:10px 12px;border:1.5px solid #e8eef6;box-shadow:0 1px 4px rgba(30,64,175,0.06);text-align:center;">
@@ -3055,7 +3055,7 @@
                 </button>
                 <button class="filter-tab" onclick="setFilter('In Progress', this)" id="ftab-inprogress">
                     <span style="display:inline-flex;align-items:center;gap:6px;">
-                        <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span><span data-i18n="adm_filter_inprog">กำลังดำเนินการ</span>
+                        <span style="width:8px;height:8px;border-radius:50%;background:#4A7C8A;display:inline-block;"></span><span data-i18n="adm_filter_inprog">กำลังดำเนินการ</span>
                     </span>
                 </button>
                 <button class="filter-tab" onclick="setFilter('Resolved', this)" id="ftab-resolved">
@@ -3210,7 +3210,7 @@
             <!-- Export Options Card -->
             <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:1.8rem;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.2rem;">
-                    <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </div>
                     <div>
@@ -3244,7 +3244,7 @@
 
                 <!-- Preview count -->
                 <div id="gs-preview-count" style="background:#f8faff;border:1px solid #e0eaff;border-radius:10px;padding:10px 14px;margin-bottom:1.2rem;font-size:.85rem;color:#475569;display:flex;align-items:center;gap:8px;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5BA3B0" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     <span id="gs-count-text">พร้อมส่ง <strong>0</strong> รายการ</span>
                 </div>
 
@@ -3277,7 +3277,7 @@
                         รายการเอกสาร
                     </button>
                     <button onclick="docNewDocument()"
-                        style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;border-radius:9px;padding:8px 16px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;box-shadow:0 3px 10px rgba(37,99,235,.3);transition:.15s;"
+                        style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;border-radius:9px;padding:8px 16px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;box-shadow:0 3px 10px rgba(74,124,138,0.3);transition:.15s;"
                         onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         สร้างเอกสารใหม่
@@ -3340,7 +3340,7 @@
                         <!-- Doc Header Info -->
                         <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:1.4rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
-                                <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;">
+                                <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                 </div>
                                 <span style="font-size:.9rem;font-weight:800;color:#1e293b;">ข้อมูลเอกสาร</span>
@@ -3349,7 +3349,7 @@
                                 <div>
                                     <label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:4px;">เลขที่เอกสาร <span style="color:#dc2626;">*</span></label>
                                     <div style="display:flex;align-items:center;gap:6px;">
-                                        <span style="font-size:.88rem;font-weight:700;color:#1e40af;white-space:nowrap;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 10px;">ITS</span>
+                                        <span style="font-size:.88rem;font-weight:700;color:#2C4A52;white-space:nowrap;background:#E8F2F4;border:1.5px solid #A8D4DB;border-radius:8px;padding:8px 10px;">ITS</span>
                                         <input type="number" id="doc-number-seq" min="1001" max="9999" placeholder="1001"
                                             oninput="docUpdateNumber()"
                                             style="width:80px;padding:9px 10px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.88rem;text-align:center;">
@@ -3381,7 +3381,7 @@
                             <div style="margin-bottom:10px;">
                                 <label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:4px;">เรื่อง <span style="color:#dc2626;">*</span></label>
                                 <div style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;background:white;transition:.2s;" id="doc-subject-wrap"
-                                    onfocusin="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,.1)'"
+                                    onfocusin="this.style.borderColor='#4A7C8A';this.style.boxShadow='0 0 0 3px rgba(74,124,138,0.12)'"
                                     onfocusout="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
                                     <span style="padding:9px 10px 9px 12px;font-family:'Sarabun',sans-serif;font-size:.88rem;color:#475569;white-space:nowrap;background:#f8faff;border-right:1.5px solid #e2e8f0;flex-shrink:0;">
                                         เอกสารชี้แจงในทางเทคนิคเพื่อพิจารณาขอ
@@ -3450,8 +3450,8 @@
 
                             <!-- Sig 1: IT Support — dropdown เฉพาะ staff (ไม่มี admin) -->
                             <div style="background:#f8faff;border:1.5px solid #e0eaff;border-radius:10px;padding:12px;margin-bottom:10px;">
-                                <div style="font-size:.7rem;font-weight:800;color:#1e40af;margin-bottom:8px;display:flex;align-items:center;gap:5px;">
-                                    <span style="background:#1e40af;color:white;padding:1px 8px;border-radius:20px;font-size:.6rem;">1</span>
+                                <div style="font-size:.7rem;font-weight:800;color:#2C4A52;margin-bottom:8px;display:flex;align-items:center;gap:5px;">
+                                    <span style="background:#2C4A52;color:white;padding:1px 8px;border-radius:20px;font-size:.6rem;">1</span>
                                     IT Support (ซ้าย)
                                 </div>
                                 <div style="margin-bottom:6px;">
@@ -3530,7 +3530,7 @@
                                 บันทึกและเสร็จสิ้น
                             </button>
                             <button onclick="docPreview()"
-                                style="width:100%;background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;border-radius:10px;padding:10px;font-size:.88rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;box-shadow:0 3px 10px rgba(30,64,175,.3);transition:.15s;display:flex;align-items:center;justify-content:center;gap:6px;"
+                                style="width:100%;background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;border-radius:10px;padding:10px;font-size:.88rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;box-shadow:0 3px 10px rgba(44,74,82,0.3);transition:.15s;display:flex;align-items:center;justify-content:center;gap:6px;"
                                 onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 ดูตัวอย่าง / พิมพ์
@@ -3554,11 +3554,11 @@
                         <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <input id="users-search-input" type="text" placeholder="ค้นหาชื่อหรือ Email..." oninput="_usersCurrentPage=1;usersRenderTable()"
                             style="padding:8px 12px 8px 32px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.85rem;font-family:'Sarabun',sans-serif;width:220px;outline:none;background:#f8fafc;"
-                            onfocus="this.style.borderColor='#93c5fd';this.style.background='white';"
+                            onfocus="this.style.borderColor='#A8D4DB';this.style.background='white';"
                             onblur="this.style.borderColor='#e2e8f0';this.style.background='#f8fafc';">
                     </div>
                     <button onclick="usersLoadData()" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 14px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s;"
-                        onmouseover="this.style.background='#eff6ff';this.style.borderColor='#93c5fd';this.style.color='#1e40af';"
+                        onmouseover="this.style.background='#E8F2F4';this.style.borderColor='#A8D4DB';this.style.color='#2C4A52';"
                         onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';this.style.color='#475569';">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                         รีเฟรช
@@ -3570,7 +3570,7 @@
             <div id="users-settings-card" style="background:white;border:1.5px solid #e2e8f0;border-radius:14px;padding:1.2rem 1.5rem;margin-bottom:1.2rem;box-shadow:0 1px 4px rgba(0,0,0,.04);">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         </div>
                         <div>
@@ -3583,14 +3583,14 @@
                             <input type="password" id="users-admin-key-input"
                                 placeholder="กรอก Admin Key (default: it_admin_2024)"
                                 style="width:100%;padding:9px 36px 9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.85rem;font-family:'Sarabun',sans-serif;outline:none;transition:.2s;box-sizing:border-box;"
-                                onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 3px rgba(59,130,246,.1)'"
+                                onfocus="this.style.borderColor='#4A7C8A';this.style.boxShadow='0 0 0 3px rgba(74,124,138,0.12)'"
                                 onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'"
                                 onkeydown="if(event.key==='Enter') usersSaveAdminKey()">
                             <button onclick="usersToggleKeyVisibility()" title="แสดง/ซ่อน" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;padding:2px;display:flex;align-items:center;">
                                 <svg id="users-key-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
-                        <button onclick="usersSaveAdminKey()" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:white;border:none;border-radius:10px;padding:9px 18px;font-size:.83rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;transition:.15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <button onclick="usersSaveAdminKey()" style="background:linear-gradient(135deg,#2C4A52,#4A7C8A);color:white;border:none;border-radius:10px;padding:9px 18px;font-size:.83rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;transition:.15s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                             💾 บันทึก
                         </button>
                     </div>
@@ -3601,8 +3601,8 @@
             <!-- Stats bar -->
             <div style="display:flex;gap:14px;margin-bottom:1.2rem;flex-wrap:wrap;">
                 <div id="users-stat-total" style="background:white;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 20px;display:flex;align-items:center;gap:10px;min-width:140px;">
-                    <div style="width:36px;height:36px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <div style="width:36px;height:36px;border-radius:10px;background:#E8F2F4;display:flex;align-items:center;justify-content:center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5BA3B0" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     </div>
                     <div><div style="font-size:.72rem;color:#94a3b8;font-weight:600;">ทั้งหมด</div><div id="users-count-total" style="font-size:1.3rem;font-weight:900;color:#1e293b;">—</div></div>
                 </div>
@@ -3659,8 +3659,8 @@
         <div id="modal-reset-user-pass" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;align-items:center;justify-content:center;">
             <div style="background:white;border-radius:20px;padding:2rem;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:loginAppear .25s ease-out;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.2rem;">
-                    <div style="width:40px;height:40px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <div style="width:40px;height:40px;border-radius:12px;background:#E8F2F4;display:flex;align-items:center;justify-content:center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5BA3B0" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     </div>
                     <div><div style="font-weight:800;font-size:1rem;color:#1e293b;">รีเซ็ตรหัสผ่าน</div>
                     <div id="modal-reset-user-email-label" style="font-size:.8rem;color:#64748b;"></div></div>
@@ -3672,18 +3672,18 @@
                 <label style="font-size:.82rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">รหัสผ่านใหม่</label>
                 <input id="modal-reset-user-newpass" type="password" placeholder="อย่างน้อย 8 ตัวอักษร"
                     style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.95rem;font-family:'Sarabun',sans-serif;outline:none;margin-bottom:.8rem;"
-                    onfocus="this.style.borderColor='#93c5fd';" onblur="this.style.borderColor='#e2e8f0';"
+                    onfocus="this.style.borderColor='#A8D4DB';" onblur="this.style.borderColor='#e2e8f0';"
                     onkeydown="if(event.key==='Enter') usersDoResetPassword()">
                 <label style="font-size:.82rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">ยืนยันรหัสผ่าน</label>
                 <input id="modal-reset-user-confirm" type="password" placeholder="กรอกรหัสผ่านซ้ำ"
                     style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.95rem;font-family:'Sarabun',sans-serif;outline:none;margin-bottom:1.2rem;"
-                    onfocus="this.style.borderColor='#93c5fd';" onblur="this.style.borderColor='#e2e8f0';"
+                    onfocus="this.style.borderColor='#A8D4DB';" onblur="this.style.borderColor='#e2e8f0';"
                     onkeydown="if(event.key==='Enter') usersDoResetPassword()">
                 <div style="display:flex;gap:10px;">
                     <button onclick="document.getElementById('modal-reset-user-pass').style.display='none'"
                         style="flex:1;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.9rem;font-weight:700;font-family:'Sarabun',sans-serif;background:#f8fafc;color:#64748b;cursor:pointer;">ยกเลิก</button>
                     <button id="modal-reset-user-btn" onclick="usersDoResetPassword()"
-                        style="flex:2;padding:10px;border:none;border-radius:10px;font-size:.9rem;font-weight:700;font-family:'Sarabun',sans-serif;background:linear-gradient(135deg,#3b82f6,#0ea5e9);color:white;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,.35);">บันทึก</button>
+                        style="flex:2;padding:10px;border:none;border-radius:10px;font-size:.9rem;font-weight:700;font-family:'Sarabun',sans-serif;background:linear-gradient(135deg,#4A7C8A,#5BA3B0);color:white;cursor:pointer;box-shadow:0 4px 12px rgba(74,124,138,0.35);">บันทึก</button>
                 </div>
             </div>
         </div>
@@ -3694,7 +3694,7 @@
                 <div style="display:flex;gap:10px;align-items:center;">
                     <button id="btn-change-own-pass" onclick="openChangePasswordModal('adminit','Admin',true)"
                         style="display:none;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 16px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s;"
-                        onmouseover="this.style.background='#eff6ff';this.style.borderColor='#93c5fd';this.style.color='#1e40af';"
+                        onmouseover="this.style.background='#E8F2F4';this.style.borderColor='#A8D4DB';this.style.color='#2C4A52';"
                         onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';this.style.color='#475569';">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                         เปลี่ยนรหัสผ่านของฉัน
@@ -3719,7 +3719,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                         Export CSV
                     </button>
-                    <button onclick="tpExportPDF()" style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(30,64,175,.35);transition:.2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                    <button onclick="tpExportPDF()" style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;color:white;padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(44,74,82,0.35);transition:.2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export PDF
                     </button>
@@ -3739,7 +3739,7 @@
                     <option value="">ทุกเจ้าหน้าที่</option>
                 </select>
                 <div style="display:flex;background:#f1f5f9;border-radius:8px;padding:2px;gap:2px;margin-left:auto;">
-                    <button id="tp-view-table" onclick="tpSetView('table')" style="padding:5px 14px;border-radius:6px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:white;color:#1e40af;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:.2s;">📋 ตาราง</button>
+                    <button id="tp-view-table" onclick="tpSetView('table')" style="padding:5px 14px;border-radius:6px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:white;color:#2C4A52;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:.2s;">📋 ตาราง</button>
                     <button id="tp-view-chart" onclick="tpSetView('chart')" style="padding:5px 14px;border-radius:6px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:transparent;color:#94a3b8;transition:.2s;">📊 กราฟ</button>
                     <button id="tp-view-rank" onclick="tpSetView('rank')" style="padding:5px 14px;border-radius:6px;border:none;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;background:transparent;color:#94a3b8;transition:.2s;">🏆 Ranking</button>
                 </div>
@@ -3851,11 +3851,11 @@
             <!-- ขั้นที่ 1 -->
             <div class="admin-form-group" style="margin-bottom:12px;">
                 <label style="display:flex;align-items:center;gap:6px;">
-                    <span style="background:#1e40af;color:white;font-size:.65rem;font-weight:800;padding:1px 7px;border-radius:20px;">ขั้นที่ 1</span>
+                    <span style="background:#2C4A52;color:white;font-size:.65rem;font-weight:800;padding:1px 7px;border-radius:20px;">ขั้นที่ 1</span>
                     ขั้นตรวจสอบ
                     <span style="color:#dc2626;font-size:.75rem;font-weight:700;">* จำเป็น</span>
                 </label>
-                <textarea id="modal-note-check" rows="3" placeholder="บันทึกผลการตรวจสอบปัญหา เช่น สาเหตุที่พบ, อุปกรณ์ที่ตรวจ, สถานการณ์เบื้องต้น..." style="border-color:#bfdbfe;font-family:'Sarabun',sans-serif;font-size:.9rem;width:100%;padding:.9rem 1rem;border-radius:10px;border:1.5px solid;transition:all .2s;resize:vertical;" oninput="validateModalNote()"></textarea>
+                <textarea id="modal-note-check" rows="3" placeholder="บันทึกผลการตรวจสอบปัญหา เช่น สาเหตุที่พบ, อุปกรณ์ที่ตรวจ, สถานการณ์เบื้องต้น..." style="border-color:#A8D4DB;font-family:'Sarabun',sans-serif;font-size:.9rem;width:100%;padding:.9rem 1rem;border-radius:10px;border:1.5px solid;transition:all .2s;resize:vertical;" oninput="validateModalNote()"></textarea>
                 <div id="note-check-err" style="display:none;color:#dc2626;font-size:.72rem;margin-top:4px;">⚠️ กรุณากรอกขั้นตรวจสอบก่อนบันทึก</div>
             </div>
 
@@ -3935,7 +3935,7 @@
     <div class="modal-box" style="max-width:420px;">
         <div class="modal-header">
             <div style="display:flex;align-items:center;gap:10px;">
-                <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;">
+                <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 </div>
                 <div>
@@ -4007,7 +4007,7 @@
                     ยกเลิก
                 </button>
                 <button onclick="confirmChangePassword()"
-                    style="flex:1;background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;border-radius:10px;padding:10px;font-size:.9rem;font-weight:700;font-family:'Sarabun',sans-serif;color:white;cursor:pointer;">
+                    style="flex:1;background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;border-radius:10px;padding:10px;font-size:.9rem;font-weight:700;font-family:'Sarabun',sans-serif;color:white;cursor:pointer;">
                     🔑 บันทึกรหัสผ่านใหม่
                 </button>
             </div>
@@ -4063,13 +4063,13 @@
         </div>
 
         <!-- Username Preview Box -->
-        <div id="staff-username-preview" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 16px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;">
-            <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <div id="staff-username-preview" style="background:linear-gradient(135deg,#E8F2F4,#D0E8EC);border:1.5px solid #A8D4DB;border-radius:12px;padding:12px 16px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;">
+            <div style="background:linear-gradient(135deg,#2C4A52,#4A7C8A);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
             <div>
-                <div style="font-size:0.72rem;color:#3b82f6;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">ชื่อผู้ใช้ที่กำหนด</div>
-                <div id="staff-username-display" style="font-size:1.1rem;font-weight:900;color:#1e40af;font-family:monospace,sans-serif;">-</div>
+                <div style="font-size:0.72rem;color:#4A7C8A;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;">ชื่อผู้ใช้ที่กำหนด</div>
+                <div id="staff-username-display" style="font-size:1.1rem;font-weight:900;color:#2C4A52;font-family:monospace,sans-serif;">-</div>
                 <div style="font-size:0.72rem;color:#64748b;margin-top:2px;">รหัสผ่านเริ่มต้น: <span style="font-weight:700;color:#475569;">password</span></div>
             </div>
         </div>
@@ -4572,7 +4572,7 @@ async function showAdminPanel() {
     setTimeout(async () => {
         try { await adminRefreshData(); } catch(e) {}
         try {
-            const staff = await syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }]);
+            const staff = await syncStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#2C4A52' }]);
             adminStaff = staff;
             if (_nameEl) {
                 const _m2 = adminStaff.find(s => s.username === _loginUser);
@@ -5063,7 +5063,7 @@ function switchLanguage(lang) {
         [btnTh, btnEn].forEach(btn => {
             const isActive = btn.id === `lang-btn-${lang}`;
             btn.style.background = isActive ? 'white' : 'transparent';
-            btn.style.color = isActive ? '#1e40af' : '#94a3b8';
+            btn.style.color = isActive ? '#2C4A52' : '#94a3b8';
             btn.style.boxShadow = isActive ? '0 1px 4px rgba(0,0,0,0.12)' : 'none';
         });
     }
@@ -5074,7 +5074,7 @@ function switchLanguage(lang) {
         [uBtnTh, uBtnEn].forEach(btn => {
             const isActive = btn.id === `user-lang-btn-${lang}`;
             btn.style.background = isActive ? 'white' : 'transparent';
-            btn.style.color = isActive ? '#1e40af' : '#94a3b8';
+            btn.style.color = isActive ? '#2C4A52' : '#94a3b8';
             btn.style.boxShadow = isActive ? '0 1px 4px rgba(0,0,0,0.12)' : 'none';
         });
     }
@@ -5113,8 +5113,8 @@ function setPriority(val) {
     const sel = document.getElementById('priority');
     if (sel) sel.value = val;
 
-    const checkColors = { Low:'#2563eb', Medium:'#0d9488', High:'#ea580c', Critical:'#dc2626' };
-    const checkBg     = { Low:'#dbeafe', Medium:'#ccfbf1', High:'#ffedd5', Critical:'#fee2e2' };
+    const checkColors = { Low:'#4A7C8A', Medium:'#0d9488', High:'#ea580c', Critical:'#dc2626' };
+    const checkBg     = { Low:'#D0E8EC', Medium:'#ccfbf1', High:'#ffedd5', Critical:'#fee2e2' };
     const checkBorder = { Low:'#93c5fd', Medium:'#5eead4', High:'#fdba74', Critical:'#fca5a5' };
 
     ['Low','Medium','High','Critical'].forEach(v => {
@@ -5747,7 +5747,7 @@ function renderUserTickets() {
     }
 
     const priColors = {
-        Low:      { color:'#1d4ed8', bg:'#eff6ff', border:'#93c5fd', label: currentLang==='th'?'ปกติ':'Normal' },
+        Low:      { color:'#2C4A52', bg:'#E8F2F4', border:'#A8D4DB', label: currentLang==='th'?'ปกติ':'Normal' },
         Medium:   { color:'#0f766e', bg:'#f0fdfa', border:'#5eead4', label: currentLang==='th'?'เร่งด่วน':'Urgent' },
         High:     { color:'#ffffff', bg:'linear-gradient(135deg,#ef4444,#dc2626)', border:'#ef4444', label: currentLang==='th'?'ด่วนมาก':'High' },
         Critical: { color:'#ffffff', bg:'linear-gradient(135deg,#7f1d1d,#b91c1c)', border:'#7f1d1d', label: currentLang==='th'?'ระบบใช้งานไม่ได้':'Critical' },
@@ -5771,7 +5771,7 @@ function renderUserTickets() {
         // สี border ซ้ายตามสถานะ
         const statusAccent = t.status === 'Resolved' ? '#22c55e'
             : t.status === 'Fixed' ? '#7c3aed'
-            : t.status === 'In Progress' ? '#3b82f6' : '#f97316';
+            : t.status === 'In Progress' ? '#4A7C8A' : '#f97316';
 
         // Admin-style assignee icon
         const staffMember = adminStaff.find(s => s.name === t.assignee);
@@ -5780,7 +5780,7 @@ function renderUserTickets() {
             ? 'linear-gradient(135deg,#92400e,#d97706)'
             : (staffMember && staffMember.color
                 ? staffMember.color
-                : 'linear-gradient(135deg,#1e40af,#3b82f6)');
+                : 'linear-gradient(135deg,#2C4A52,#4A7C8A)');
         const avatarIcon = isAdmRole
             ? `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
             : `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -5794,7 +5794,7 @@ function renderUserTickets() {
 
         // ── assignee avatar — color directly from adminStaff ──────────────────
         const staffColor = staffMember
-            ? (isAdmRole ? 'linear-gradient(135deg,#92400e,#d97706)' : (staffMember.color || '#1e40af'))
+            ? (isAdmRole ? 'linear-gradient(135deg,#92400e,#d97706)' : (staffMember.color || '#2C4A52'))
             : null;
         const staffIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
 
@@ -5802,12 +5802,12 @@ function renderUserTickets() {
         const assigneeHtmlCard = !isUnassigned && staffColor
             ? `<div class="ticket-card-assignee">
                 <div style="width:22px;height:22px;border-radius:50%;background:${staffColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${isAdmRole ? avatarIcon : staffIconSvg}</div>
-                <span>${currentLang==='th'?'ผู้รับผิดชอบ:':'Assignee:'} <strong style="color:#1e40af;">${t.assignee}</strong></span>
+                <span>${currentLang==='th'?'ผู้รับผิดชอบ:':'Assignee:'} <strong style="color:#2C4A52;">${t.assignee}</strong></span>
                </div>`
             : !isUnassigned
                 ? `<div class="ticket-card-assignee">
-                    <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${staffIconSvg}</div>
-                    <span>${currentLang==='th'?'ผู้รับผิดชอบ:':'Assignee:'} <strong style="color:#1e40af;">${t.assignee}</strong></span>
+                    <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${staffIconSvg}</div>
+                    <span>${currentLang==='th'?'ผู้รับผิดชอบ:':'Assignee:'} <strong style="color:#2C4A52;">${t.assignee}</strong></span>
                    </div>`
                 : `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fb923c;animation:newJobPulseGlow 2s ease-in-out infinite;box-shadow:0 2px 10px rgba(251,146,60,0.25);">
                     <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ea580c,#f97316);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(234,88,12,0.4);">
@@ -5825,7 +5825,7 @@ function renderUserTickets() {
         // ── status badge html ─────────────────────────────────────────────────
         const statusBadge = `<span style="font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;color:${
             t.status==='Resolved'?'#15803d':t.status==='Fixed'?'#5b21b6':t.status==='In Progress'?'#1d4ed8':'#c2410c'};background:${
-            t.status==='Resolved'?'#f0fdf4':t.status==='Fixed'?'#ede9fe':t.status==='In Progress'?'#dbeafe':'#fff7ed'};">${sl}</span>`;
+            t.status==='Resolved'?'#f0fdf4':t.status==='Fixed'?'#ede9fe':t.status==='In Progress'?'#D0E8EC':'#fff7ed'};">${sl}</span>`;
 
         // show top-right type badge for duplicate/existing only
         const showTypeBadge = t.ticketType === 'duplicate' || t.ticketType === 'existing';
@@ -5890,7 +5890,7 @@ function renderUserTickets() {
             pgBar.style.display = 'flex';
             pgBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:1rem;';
             const btnBase = 'border:1.5px solid;border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:700;font-family:\'Sarabun\',sans-serif;cursor:pointer;transition:all .15s;';
-            const btnActive = btnBase + 'background:#1e40af;color:white;border-color:#1e40af;';
+            const btnActive = btnBase + 'background:#2C4A52;color:white;border-color:#2C4A52;';
             const btnNormal = btnBase + 'background:white;color:#475569;border-color:#e2e8f0;';
             const btnDisabled = btnBase + 'background:#f8fafc;color:#cbd5e1;border-color:#e2e8f0;cursor:default;';
 
@@ -5942,7 +5942,7 @@ function openTicketDetail(ticketId) {
         return item ? item[1] : val;
     };
     const priMap = {
-        Low:      { color:'#1d4ed8', bg:'#eff6ff', border:'#93c5fd', label: currentLang==='th'?'ปกติ':'Normal' },
+        Low:      { color:'#2C4A52', bg:'#E8F2F4', border:'#A8D4DB', label: currentLang==='th'?'ปกติ':'Normal' },
         Medium:   { color:'#0f766e', bg:'#f0fdfa', border:'#5eead4', label: currentLang==='th'?'เร่งด่วน':'Urgent' },
         High:     { color:'#c2410c', bg:'#fff7ed', border:'#fdba74', label: currentLang==='th'?'ด่วนมาก':'High' },
         Critical: { color:'#b91c1c', bg:'#fef2f2', border:'#fca5a5', label: currentLang==='th'?'ระบบใช้งานไม่ได้':'Critical' },
@@ -5950,7 +5950,7 @@ function openTicketDetail(ticketId) {
     const pc = priMap[t.priority] || priMap.Low;
     const sl = statusLabels[currentLang][t.status] || t.status;
     const statusColor = t.status==='Resolved'?'#15803d':t.status==='Fixed'?'#5b21b6':t.status==='In Progress'?'#1d4ed8':'#c2410c';
-    const statusBg    = t.status==='Resolved'?'#f0fdf4':t.status==='Fixed'?'#ede9fe':t.status==='In Progress'?'#dbeafe':'#fff7ed';
+    const statusBg    = t.status==='Resolved'?'#f0fdf4':t.status==='Fixed'?'#ede9fe':t.status==='In Progress'?'#D0E8EC':'#fff7ed';
 
     const dateStr = new Date(t.date).toLocaleDateString(
         currentLang==='th'?'th-TH':'en-US',
@@ -6016,12 +6016,12 @@ function openTicketDetail(ticketId) {
             rows += `<div class="td-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
                 <span class="td-label">${lbl.note}</span>
                 <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
-                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;">
-                        <div style="font-size:.68rem;font-weight:800;color:#1e40af;margin-bottom:4px;display:flex;align-items:center;gap:5px;">
-                            <span style="background:#1e40af;color:white;padding:1px 6px;border-radius:20px;font-size:.6rem;">ขั้นที่ 1</span>
+                    <div style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:8px;padding:8px 12px;">
+                        <div style="font-size:.68rem;font-weight:800;color:#2C4A52;margin-bottom:4px;display:flex;align-items:center;gap:5px;">
+                            <span style="background:#2C4A52;color:white;padding:1px 6px;border-radius:20px;font-size:.6rem;">ขั้นที่ 1</span>
                             ขั้นตรวจสอบ
                         </div>
-                        <div style="font-size:.85rem;color:#1e3a8a;white-space:pre-wrap;">${checkNote}</div>
+                        <div style="font-size:.85rem;color:#2C4A52;white-space:pre-wrap;">${checkNote}</div>
                     </div>
                     ${solutionNote ? `<div style="background:#f0fdfa;border:1px solid #a5f3fc;border-radius:8px;padding:8px 12px;">
                         <div style="font-size:.68rem;font-weight:800;color:#0e7490;margin-bottom:4px;display:flex;align-items:center;gap:5px;">
@@ -6187,7 +6187,7 @@ async function adminRefreshData() {
     try {
         const [newTickets, newStaff] = await Promise.all([
             syncTickets(),
-            dbGetStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#1e40af' }])
+            dbGetStaff([{ id: 1, name: 'Admin IT', role: 'System Admin', color: '#2C4A52' }])
         ]);
         adminStaff = newStaff;
         localStorage.setItem(STAFF_KEY, JSON.stringify(adminStaff));
@@ -6285,7 +6285,7 @@ function drawDonut(canvas, data, bgColor) {
     });
 
     // center text
-    ctx.fillStyle = '#1e40af';
+    ctx.fillStyle = '#2C4A52';
     ctx.font = `bold ${Math.round(R * 0.42)}px Sarabun,sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -6364,8 +6364,8 @@ function drawPriorityBars(canvas, low, med, high) {
     ctx.clearRect(0,0,W,H);
     const items = [
         { label:'Low', value:low, color:'#93c5fd' },
-        { label:'Medium', value:med, color:'#3b82f6' },
-        { label:'High', value:high, color:'#1e40af' },
+        { label:'Medium', value:med, color:'#4A7C8A' },
+        { label:'High', value:high, color:'#2C4A52' },
     ];
     const max = Math.max(low, med, high, 1);
     const barW = (W - 60) / items.length;
@@ -6389,7 +6389,7 @@ function drawPriorityBars(canvas, low, med, high) {
         ctx.textAlign = 'center';
         ctx.fillText(it.label, x + bww/2, H - 5);
         // value
-        ctx.fillStyle = '#1e40af';
+        ctx.fillStyle = '#2C4A52';
         ctx.font = 'bold 11px Sarabun,sans-serif';
         ctx.fillText(it.value, x + bww/2, y - 5);
     });
@@ -6402,7 +6402,7 @@ function renderChartStatus(open, prog, done) {
     const sl = statusLabels[currentLang];
     const data = [
         { label: sl['Open'],        value:open,  color:'#f59e0b' },
-        { label: sl['In Progress'], value:prog,  color:'#3b82f6' },
+        { label: sl['In Progress'], value:prog,  color:'#4A7C8A' },
         { label: sl['Resolved'],    value:done,  color:'#22c55e' },
     ];
     drawDonut(canvas, data, 'white');
@@ -6427,7 +6427,7 @@ function renderChartCategory() {
     adminTickets.forEach(t => { counts[t.category] = (counts[t.category] || 0) + 1; });
     const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
     const max = sorted[0]?.[1] || 1;
-    const colors = ['#1e40af','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
+    const colors = ['#2C4A52','#374C57','#4A7C8A','#5BA3B0','#A8D4DB','#D0E8EC'];
     if (!sorted.length) { el.innerHTML = `<p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:1.5rem 0;">${i18n[currentLang].adm_no_data}</p>`; return; }
     el.innerHTML = sorted.slice(0, 6).map(([cat, cnt], i) =>
         makeBar(getCatLabel(cat), cnt, max, colors[i % colors.length])
@@ -6459,11 +6459,11 @@ function renderChartEfficiency(total, done, open, prog, eff) {
     const resolveRate = total > 0 ? Math.round((done/total)*100) : 0;
     const pendingRate = total > 0 ? Math.round((open/total)*100) : 0;
     const inProgRate  = total > 0 ? Math.round((prog/total)*100) : 0;
-    const effColor = eff >= 80 ? '#0ea5e9' : eff >= 50 ? '#3b82f6' : '#f59e0b';
+    const effColor = eff >= 80 ? '#5BA3B0' : eff >= 50 ? '#4A7C8A' : '#f59e0b';
     el.innerHTML = [
         makeBar(i18n[currentLang].adm_bar_resolve, resolveRate, 100, '#0ea5e9', '%'),
         makeBar(i18n[currentLang].adm_bar_pending,  pendingRate, 100, '#f59e0b', '%'),
-        makeBar(i18n[currentLang].adm_bar_inprog,   inProgRate,  100, '#3b82f6', '%'),
+        makeBar(i18n[currentLang].adm_bar_inprog, inProgRate, 100, '#4A7C8A', '%'),
         makeBar(i18n[currentLang].adm_bar_overall,  eff,         100, effColor,  '%'),
     ].join('');
 
@@ -6480,8 +6480,8 @@ function renderChartEfficiency(total, done, open, prog, eff) {
             ? { bg:'#f0fdf4', border:'#86efac', iconBg:'#dcfce7', icon:'✅', iconColor:'#16a34a',
                 labelColor:'#166534', label:'ระดับดีเยี่ยม', sub:'ยอดเยี่ยม รักษามาตรฐานนี้ไว้', subColor:'#4ade80', barColor:'#22c55e' }
             : eff >= 60
-            ? { bg:'#eff6ff', border:'#93c5fd', iconBg:'#dbeafe', icon:'📈', iconColor:'#2563eb',
-                labelColor:'#1e40af', label:'ระดับดี', sub:'มีโอกาสพัฒนาเพิ่มเติม', subColor:'#60a5fa', barColor:'#3b82f6' }
+            ? { bg:'#E8F2F4', border:'#A8D4DB', iconBg:'#D0E8EC', icon:'📈', iconColor:'#4A7C8A',
+                labelColor:'#2C4A52', label:'ระดับดี', sub:'มีโอกาสพัฒนาเพิ่มเติม', subColor:'#5BA3B0', barColor:'#4A7C8A' }
             : eff >= 30
             ? { bg:'#fffbeb', border:'#fcd34d', iconBg:'#fef3c7', icon:'⚠️', iconColor:'#d97706',
                 labelColor:'#92400e', label:'ต้องปรับปรุง', sub:`มี ${open+prog} Ticket ค้างอยู่ — ต้องดำเนินการด่วน`, subColor:'#f59e0b', barColor:'#f59e0b' }
@@ -6510,7 +6510,7 @@ function renderChartEfficiency(total, done, open, prog, eff) {
     const PREVIEW_COUNT = 3;
     const statusStyle = {
         'Open':        { color:'#d97706', bg:'#fef3c7', border:'#fde68a' },
-        'In Progress': { color:'#2563eb', bg:'#dbeafe', border:'#bfdbfe' },
+        'In Progress': { color:'#4A7C8A', bg:'#D0E8EC', border:'#A8D4DB' },
         'Resolved':    { color:'#0ea5e9', bg:'#e0f2fe', border:'#bae6fd' },
     };
     const priStyle = {
@@ -6531,7 +6531,7 @@ function renderChartEfficiency(total, done, open, prog, eff) {
             ? 'linear-gradient(135deg,#92400e,#d97706)'
             : (staffMember && staffMember.color
                 ? staffMember.color
-                : 'linear-gradient(135deg,#1e40af,#3b82f6)');
+                : 'linear-gradient(135deg,#2C4A52,#4A7C8A)');
         const avatarIcon = isAdm
             ? `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
             : `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -6545,7 +6545,7 @@ function renderChartEfficiency(total, done, open, prog, eff) {
                </div>`
             : `<span style="font-size:.82rem;color:#cbd5e1;">—</span>`;
         return `<tr style="border-bottom:1px solid #f0f5ff;white-space:nowrap;" onmouseover="this.style.background='#f8faff'" onmouseout="this.style.background=''">
-            <td style="padding:10px 10px; color:#1e40af; font-weight:800; font-size:.88rem;">${t.id}</td>
+            <td style="padding:10px 10px; color:#2C4A52; font-weight:800; font-size:.88rem;">${t.id}</td>
             <td style="padding:10px 10px; color:#334155; font-size:.88rem; font-weight:600;">${t.user}</td>
             <td style="padding:10px 10px; color:#64748b; font-size:.88rem;">${getCatLabel(t.category)}</td>
             <td style="padding:10px 10px;">${assigneeHtml}</td>
@@ -6670,7 +6670,7 @@ function getTicketSheet() {
     sheet = ss.insertSheet(SHEET_TICKETS);
     sheet.appendRow(TICKET_COLS);
     var hdr = sheet.getRange(1, 1, 1, TICKET_COLS.length);
-    hdr.setBackground('#1e40af');
+    hdr.setBackground('#2C4A52');
     hdr.setFontColor('#ffffff');
     hdr.setFontWeight('bold');
     hdr.setFontSize(10);
@@ -6775,7 +6775,7 @@ function getUserSheet() {
     sheet = ss.insertSheet(SHEET_USERS);
     sheet.appendRow(USER_COLS);
     var hdr = sheet.getRange(1, 1, 1, USER_COLS.length);
-    hdr.setBackground('#1e40af');
+    hdr.setBackground('#2C4A52');
     hdr.setFontColor('#ffffff');
     hdr.setFontWeight('bold');
     hdr.setFontSize(10);
@@ -7186,7 +7186,7 @@ function gsUpdateCount() {
     const periodVal = document.getElementById('gs-filter-period')?.value || 'all';
     const filtered  = gsFilterTickets(statusVal, periodVal);
     const txt = document.getElementById('gs-count-text');
-    if (txt) txt.innerHTML = `พร้อมส่ง <strong style="color:#1e40af;">${filtered.length}</strong> รายการ`;
+    if (txt) txt.innerHTML = `พร้อมส่ง <strong style="color:#2C4A52;">${filtered.length}</strong> รายการ`;
 }
 
 function gsFilterTickets(statusVal, periodVal) {
@@ -7322,7 +7322,7 @@ function adminRenderDashboard() {
         const isAdm = staffMember && isAdminRole(staffMember.role);
         const avatarBg = isAdm
             ? 'linear-gradient(135deg,#92400e,#d97706)'
-            : (staffMember && staffMember.color ? staffMember.color : 'linear-gradient(135deg,#1e40af,#3b82f6)');
+            : (staffMember && staffMember.color ? staffMember.color : 'linear-gradient(135deg,#2C4A52,#4A7C8A)');
         const avatarIcon = isAdm
             ? `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
             : `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -7410,7 +7410,7 @@ function adminRenderAllTickets() {
     if (countEl) countEl.textContent = `แสดง ${start+1}–${Math.min(start+PAGE_SIZE, totalItems)} จาก ${totalItems} รายการ`;
 
     const priMap = {
-        Low:      { label:'ปกติ',      bg:'#eff6ff', color:'#1d4ed8', dot:'#3b82f6', border:'#93c5fd' },
+        Low:      { label:'ปกติ',      bg:'#E8F2F4', color:'#2C4A52', dot:'#4A7C8A', border:'#A8D4DB' },
         Medium:   { label:'เร่งด่วน',  bg:'#f0fdfa', color:'#0f766e', dot:'#14b8a6', border:'#5eead4' },
         High:     { label:'ด่วนมาก',           bg:'#fff7ed', color:'#c2410c', dot:'#f97316', border:'#fdba74' },
         Critical: { label:'ระบบใช้งานไม่ได้', bg:'#fef2f2', color:'#b91c1c', dot:'#ef4444', border:'#fca5a5' },
@@ -7428,7 +7428,7 @@ function adminRenderAllTickets() {
             ? 'linear-gradient(135deg,#92400e,#d97706)'
             : (staffMember && staffMember.color
                 ? staffMember.color
-                : 'linear-gradient(135deg,#1e40af,#3b82f6)');
+                : 'linear-gradient(135deg,#2C4A52,#4A7C8A)');
         const avatarIcon = isAdm
             ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
             : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -7445,11 +7445,11 @@ function adminRenderAllTickets() {
         const tdStyle = 'padding:7px 9px;border-bottom:1px solid #f0f5ff;vertical-align:middle;overflow:hidden;';
         return `<tr style="background:${rowBg};transition:.15s;cursor:pointer;"
                     onclick="openTicketModal('${t.id}')"
-                    onmouseover="this.style.background='#eff6ff';this.style.boxShadow='inset 3px 0 0 #3b82f6';"
+                    onmouseover="this.style.background='#E8F2F4';this.style.boxShadow='inset 3px 0 0 #4A7C8A';"
                     onmouseout="this.style.background='${rowBg}';this.style.boxShadow='none';">
             <!-- Col 1: Ticket ID + type badge + rating -->
             <td style="${tdStyle}">
-                <span style="font-size:.8rem;font-weight:800;color:#1e40af;background:#eff6ff;padding:2px 8px;border-radius:6px;font-family:monospace,sans-serif;">${t.id}</span>
+                <span style="font-size:.8rem;font-weight:800;color:#2C4A52;background:#E8F2F4;padding:2px 8px;border-radius:6px;font-family:monospace,sans-serif;">${t.id}</span>
                 <div style="margin-top:3px;">${ticketTypeBadge(t.ticketType, t.assignee)}</div>
                 <div style="margin-top:4px;display:flex;align-items:center;gap:3px;">
                     ${[1,2,3,4,5].map(s =>
@@ -7540,13 +7540,13 @@ function renderMobileTicketCards(list) {
     if (!container) return;
 
     const priMap = {
-        Low:      { label:'ปกติ',              color:'#1d4ed8', bg:'#eff6ff', border:'#93c5fd' },
+        Low:      { label:'ปกติ',              color:'#2C4A52', bg:'#E8F2F4', border:'#A8D4DB' },
         Medium:   { label:'เร่งด่วน',          color:'#0f766e', bg:'#f0fdfa', border:'#5eead4' },
         High:     { label:'ด่วนมาก',           color:'#c2410c', bg:'#fff7ed', border:'#fdba74' },
         Critical: { label:'ระบบใช้งานไม่ได้',  color:'#b91c1c', bg:'#fef2f2', border:'#fca5a5' },
     };
-    const statusColor = { 'Open':'#f97316','In Progress':'#2563eb','Resolved':'#16a34a','Fixed':'#7c3aed' };
-    const statusBg    = { 'Open':'#fff7ed','In Progress':'#dbeafe','Resolved':'#f0fdf4','Fixed':'#ede9fe' };
+    const statusColor = { 'Open':'#f97316','In Progress':'#4A7C8A','Resolved':'#16a34a','Fixed':'#7c3aed' };
+    const statusBg    = { 'Open':'#fff7ed','In Progress':'#D0E8EC','Resolved':'#f0fdf4','Fixed':'#ede9fe' };
 
     if (!list.length) {
         container.innerHTML = `<div style="text-align:center;padding:3rem 1rem;">
@@ -7574,7 +7574,7 @@ function renderMobileTicketCards(list) {
             <!-- Row 1: ID + วันที่ + สถานะ -->
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:.82rem;font-weight:800;color:#1e40af;background:#eff6ff;padding:2px 9px;border-radius:7px;font-family:monospace;">${t.id}</span>
+                    <span style="font-size:.82rem;font-weight:800;color:#2C4A52;background:#E8F2F4;padding:2px 9px;border-radius:7px;font-family:monospace;">${t.id}</span>
                     ${isOpen && isUnassigned ? '<span style="font-size:.65rem;font-weight:800;color:#9a3412;background:#ffedd5;border:1px solid #fed7aa;padding:1px 7px;border-radius:20px;">รอรับงาน</span>' : ''}
                 </div>
                 <span style="font-size:.72rem;font-weight:700;color:${sc};background:${sb};padding:2px 10px;border-radius:20px;">${sl}</span>
@@ -7594,7 +7594,7 @@ function renderMobileTicketCards(list) {
             </div>
 
             ${t.assignee ? `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-                <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#2C4A52,#4A7C8A);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <span style="font-size:.78rem;font-weight:600;color:#334155;">${t.assignee}</span>
@@ -7630,9 +7630,9 @@ function renderPagination(totalPages, totalItems) {
         padding:6px 12px;border-radius:8px;font-size:0.85rem;font-weight:700;
         font-family:'Sarabun',sans-serif;cursor:pointer;border:1.5px solid;
         transition:all .15s;
-        background:${active ? '#1e40af' : 'white'};
+        background:${active ? '#2C4A52' : 'white'};
         color:${active ? 'white' : '#64748b'};
-        border-color:${active ? '#1e40af' : '#e2e8f0'};
+        border-color:${active ? '#2C4A52' : '#e2e8f0'};
     `;
 
     let html = `<button style="${btnStyle(false)}opacity:${currentPage===1?.4:1};" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ Prev</button>`;
@@ -7732,7 +7732,7 @@ function openTicketModal(id) {
     // clear validation errors
     const e1 = document.getElementById('note-check-err');
     const e2 = document.getElementById('note-solution-err');
-    if (e1) { e1.style.display='none'; if(noteCheck) noteCheck.style.borderColor='#bfdbfe'; }
+    if (e1) { e1.style.display='none'; if(noteCheck) noteCheck.style.borderColor='#A8D4DB'; }
     if (e2) { e2.style.display='none'; if(noteSolution) noteSolution.style.borderColor='#a5f3fc'; }
 
     // status badge
@@ -7763,7 +7763,7 @@ function openTicketModal(id) {
             const ownerName = t.assignee || '—';
             document.getElementById('modal-lock-msg').innerHTML =
                 `<strong>⛔ ไม่มีสิทธิ์แก้ไข</strong><br>
-                 <span style="font-size:.8rem;">Ticket นี้มอบหมายให้ <strong style="color:#1e40af;">${ownerName}</strong> แล้ว<br>
+                 <span style="font-size:.8rem;">Ticket นี้มอบหมายให้ <strong style="color:#2C4A52;">${ownerName}</strong> แล้ว<br>
                  เฉพาะผู้รับผิดชอบหรือ Admin เท่านั้นที่แก้ไขได้</span>`;
         }
         [noteCheck, noteSolution,
@@ -7866,7 +7866,7 @@ function validateModalNote() {
         valid = false;
     } else {
         if (e1) e1.style.display = 'none';
-        if (noteCheck) noteCheck.style.borderColor = '#bfdbfe';
+        if (noteCheck) noteCheck.style.borderColor = '#A8D4DB';
     }
     if (noteSolution && !noteSolution.value.trim()) {
         if (e2) e2.style.display = 'block';
@@ -8055,7 +8055,7 @@ function saveTicketChanges(isClose = false) {
 }
 
 // ===================== STAFF =====================
-const staffColors = ['#3b82f6','#0ea5e9','#10b981','#8b5cf6','#ec4899','#f97316','#06b6d4','#84cc16','#f59e0b','#6366f1'];
+const staffColors = ['#4A7C8A','#5BA3B0','#10b981','#8b5cf6','#ec4899','#f97316','#06b6d4','#84cc16','#f59e0b','#6366f1'];
 
 function renderAdminStaff() {
     const list = document.getElementById('staff-list');
@@ -8069,7 +8069,7 @@ function renderAdminStaff() {
             : `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
         const avatarBg = isAdmin
             ? 'linear-gradient(135deg,#92400e,#d97706)'
-            : `${s.color || '#3b82f6'}`;
+            : `${s.color || '#4A7C8A'}`;
         // superadmin ลบได้ทุกคน ยกเว้นตัวเอง
         const isSelf = s.username === currentUser;
         const canDelete = isSuperAdmin && s.username !== currentUser && s.username !== ADMIN_USER || (isSuperAdmin && s.username !== ADMIN_USER && !isSelf);
@@ -8084,14 +8084,14 @@ function renderAdminStaff() {
             <div class="staff-info">
                 <h3>${s.name}</h3>
                 <p>${s.role}</p>
-                ${s.username ? `<p style="font-size:0.75rem;color:#3b82f6;font-weight:700;margin-top:2px;">🔑 ${s.username}</p>` : ''}
+                ${s.username ? `<p style="font-size:0.75rem;color:#4A7C8A;font-weight:700;margin-top:2px;">🔑 ${s.username}</p>` : ''}
             </div>
             ${canChangePass ? `
             <button onclick="openChangePasswordModal('${s.username || ''}', '${s.name}', ${isAdmin})"
                 style="margin-top:10px;width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:9px;
                        padding:7px 10px;font-size:.78rem;font-weight:700;font-family:'Sarabun',sans-serif;
                        color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
-                       transition:.15s;" onmouseover="this.style.background='#eff6ff';this.style.borderColor='#93c5fd';this.style.color='#1e40af';"
+                       transition:.15s;" onmouseover="this.style.background='#E8F2F4';this.style.borderColor='#A8D4DB';this.style.color='#2C4A52';"
                        onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';this.style.color='#475569';">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 ${isSelf && !isSuperAdmin ? 'เปลี่ยนรหัสผ่านของฉัน' : 'เปลี่ยนรหัสผ่าน'}
@@ -8190,7 +8190,7 @@ function openStaffModal() {
     const preview = document.getElementById('staff-username-preview');
     if (slot) {
         if (display) display.textContent = slot.username;
-        if (preview) preview.style.borderColor = '#bfdbfe';
+        if (preview) preview.style.borderColor = '#A8D4DB';
     } else {
         if (display) display.textContent = 'Full (it01–it10)';
         if (preview) preview.style.borderColor = '#fca5a5';
@@ -8537,7 +8537,7 @@ function slaSwitchMode(mode) {
     slaOffset = 0;
     renderSLAWidget();
     // style tabs
-    const activeStyle   = 'padding:5px 14px;border-radius:7px;border:none;font-size:.78rem;font-weight:700;font-family:\'Sarabun\',sans-serif;cursor:pointer;background:white;color:#1e40af;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:.2s;';
+    const activeStyle   = 'padding:5px 14px;border-radius:7px;border:none;font-size:.78rem;font-weight:700;font-family:\'Sarabun\',sans-serif;cursor:pointer;background:white;color:#2C4A52;box-shadow:0 1px 3px rgba(0,0,0,0.1);transition:.2s;';
     const inactiveStyle = 'padding:5px 14px;border-radius:7px;border:none;font-size:.78rem;font-weight:700;font-family:\'Sarabun\',sans-serif;cursor:pointer;background:transparent;color:#94a3b8;transition:.2s;';
     document.getElementById('sla-tab-month').style.cssText = (mode === 'month') ? activeStyle : inactiveStyle;
     document.getElementById('sla-tab-year').style.cssText  = (mode === 'year')  ? activeStyle : inactiveStyle;
@@ -8723,13 +8723,13 @@ function renderSLAYear(el, yearLabel) {
         return `
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;">
             <span style="font-size:.68rem;font-weight:${m.pct!==null?'800':'500'};color:${m.pct!==null?c:'#cbd5e1'};">${m.pct!==null?m.pct+'%':''}</span>
-            <div style="width:100%;background:#f1f5f9;border-radius:6px 6px 3px 3px;height:70px;display:flex;align-items:flex-end;overflow:hidden;position:relative;${isCurrentMonth?'box-shadow:0 0 0 2px #3b82f6;border-radius:6px;':''}">
+            <div style="width:100%;background:#f1f5f9;border-radius:6px 6px 3px 3px;height:70px;display:flex;align-items:flex-end;overflow:hidden;position:relative;${isCurrentMonth?'box-shadow:0 0 0 2px #4A7C8A;border-radius:6px;':''}">
                 <div style="width:100%;height:${barH}%;background:${m.total>0?c:'#e2e8f0'};border-radius:4px 4px 0 0;transition:height .5s ease;position:relative;">
                     ${barH >= 90 && m.total > 0 ? '<div style="position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:.55rem;color:white;font-weight:800;">✓</div>' : ''}
                 </div>
             </div>
             <!-- goal line indicator -->
-            <span style="font-size:.7rem;font-weight:700;color:${isCurrentMonth?'#1e40af':'#94a3b8'};">${m.name}</span>
+            <span style="font-size:.7rem;font-weight:700;color:${isCurrentMonth?'#2C4A52':'#94a3b8'};">${m.name}</span>
             <span style="font-size:.65rem;color:#cbd5e1;">${m.total>0?m.total+' tickets':''}</span>
         </div>`;
     }).join('');
@@ -8744,7 +8744,7 @@ function renderSLAYear(el, yearLabel) {
         const met = m.pct >= 90;
         const isCurrent = (y === now.getFullYear() && i === now.getMonth());
         return `<tr style="border-bottom:1px solid #f0f5ff;${isCurrent?'background:#f0f9ff;':''}">
-            <td style="padding:7px 10px;font-size:.82rem;font-weight:700;color:${isCurrent?'#1e40af':'#334155'};">${monthNames[i]} ${y}${isCurrent?' <span style="font-size:.65rem;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-weight:700;">ปัจจุบัน</span>':''}</td>
+            <td style="padding:7px 10px;font-size:.82rem;font-weight:700;color:${isCurrent?'#2C4A52':'#334155'};">${monthNames[i]} ${y}${isCurrent?' <span style="font-size:.65rem;background:#D0E8EC;color:#2C4A52;padding:1px 6px;border-radius:4px;font-weight:700;">ปัจจุบัน</span>':''}</td>
             <td style="padding:7px 10px;font-size:.82rem;color:#475569;text-align:center;">${m.total}</td>
             <td style="padding:7px 10px;font-size:.82rem;color:#16a34a;font-weight:700;text-align:center;">${m.withinSLA}</td>
             <td style="padding:7px 10px;font-size:.82rem;color:#dc2626;font-weight:700;text-align:center;">${m.outsideSLA}</td>
@@ -9384,7 +9384,7 @@ function renderFCRWidget() {
             const isAdmin = staffMember && isAdminRole(staffMember.role);
             const avatarBg = isAdmin
                 ? 'linear-gradient(135deg,#92400e,#d97706)'
-                : (staffMember && staffMember.color ? staffMember.color : '#3b82f6');
+                : (staffMember && staffMember.color ? staffMember.color : '#4A7C8A');
             const avatarIcon = isAdmin
                 ? `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -9981,7 +9981,7 @@ function renderP1Widget() {
             const staffMember = adminStaff.find(s => s.name === name);
             const isAdm = staffMember && isAdminRole(staffMember.role);
             const avBg  = isAdm ? 'linear-gradient(135deg,#92400e,#d97706)'
-                : (staffMember && staffMember.color ? staffMember.color : '#3b82f6');
+                : (staffMember && staffMember.color ? staffMember.color : '#4A7C8A');
             const avIcon = isAdm
                 ? `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
                 : `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
@@ -10634,14 +10634,14 @@ function showDupModal(result) {
         : 'พบ Ticket ที่มีเนื้อหาคล้ายกันภายใน 7 วัน กรุณาตรวจสอบก่อนส่ง';
 
     const sColor = { Open:'#c2410c','In Progress':'#1d4ed8',Resolved:'#15803d' };
-    const sBg    = { Open:'#fff7ed','In Progress':'#dbeafe',Resolved:'#f0fdf4' };
+    const sBg    = { Open:'#fff7ed','In Progress':'#D0E8EC',Resolved:'#f0fdf4' };
     const sLabel = { Open:'รอดำเนินการ','In Progress':'กำลังดำเนินการ',Resolved:'เสร็จสิ้น' };
     const catLbl = v => { const i = categoryData['th'].find(x=>x[0]===v); return i?i[1]:v; };
 
     listEl.innerHTML = result.matches.map(t => `
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
-                <span style="font-size:.8rem;font-weight:900;color:#1e40af;">${t.id}</span>
+                <span style="font-size:.8rem;font-weight:900;color:#2C4A52;">${t.id}</span>
                 <span style="font-size:.7rem;font-weight:700;color:${sColor[t.status]||'#64748b'};background:${sBg[t.status]||'#f1f5f9'};border-radius:20px;padding:1px 8px;">${sLabel[t.status]||t.status}</span>
             </div>
             <p style="font-size:.75rem;color:#334155;margin:0 0 3px;font-weight:600;">${catLbl(t.category)}</p>
@@ -10685,7 +10685,7 @@ function tpSetView(v) {
         const btn = document.getElementById('tp-view-' + x);
         if (!btn) return;
         if (x === v) {
-            btn.style.background = 'white'; btn.style.color = '#1e40af';
+            btn.style.background = 'white'; btn.style.color = '#2C4A52';
             btn.style.boxShadow = '0 1px 3px rgba(0,0,0,.1)';
         } else {
             btn.style.background = 'transparent'; btn.style.color = '#94a3b8';
@@ -10785,7 +10785,7 @@ function renderTeamPerformance() {
     const totalCrit     = allInRange.filter(t => t.priority === 'Critical' || t.priority === 'High').length;
 
     const kpiCards = [
-        { icon:'📥', label:'Tickets Assigned',   val: totalAssigned, color:'#1d4ed8', bg:'#eff6ff', bdr:'#93c5fd' },
+        { icon:'📥', label:'Tickets Assigned',   val: totalAssigned, color:'#2C4A52', bg:'#E8F2F4', bdr:'#93c5fd' },
         { icon:'✅', label:'Tickets Resolved',    val: totalResolved, color:'#15803d', bg:'#f0fdf4', bdr:'#86efac' },
         { icon:'⏳', label:'Pending',             val: totalPending,  color:'#c2410c', bg:'#fff7ed', bdr:'#fdba74' },
         { icon:'🚨', label:'Critical / High',     val: totalCrit,     color:'#b91c1c', bg:'#fef2f2', bdr:'#fca5a5' },
@@ -10867,7 +10867,7 @@ function renderTeamPerformance() {
                     const slaColor = s.slaPct === null ? '#94a3b8' : s.slaPct >= 90 ? '#15803d' : s.slaPct >= 70 ? '#d97706' : '#dc2626';
                     const slaBg    = s.slaPct === null ? '#f1f5f9' : s.slaPct >= 90 ? '#f0fdf4' : s.slaPct >= 70 ? '#fffbeb' : '#fef2f2';
                     const staffMem = adminStaff.find(x => x.name === s.name);
-                    const avatarBg = staffMem?.color || 'linear-gradient(135deg,#1e40af,#3b82f6)';
+                    const avatarBg = staffMem?.color || 'linear-gradient(135deg,#2C4A52,#4A7C8A)';
                     const rowBg    = i % 2 === 0 ? 'white' : '#fafbff';
                     const resolvedPct = s.assigned > 0 ? Math.round(s.resolved/s.assigned*100) : 0;
                     const hasSecondary = s.secondaryCount > 0;
@@ -10928,7 +10928,7 @@ function renderTeamPerformance() {
             <div style="display:flex;flex-direction:column;gap:10px;">
                 ${data.map((s,i) => {
                     const pct = Math.round(s.resolved/maxRes*100);
-                    const colors = ['#3b82f6','#0d9488','#f97316','#8b5cf6','#ec4899','#14b8a6'];
+                    const colors = ['#4A7C8A','#0d9488','#f97316','#8b5cf6','#ec4899','#14b8a6'];
                     const c = colors[i % colors.length];
                     return `<div style="display:flex;align-items:center;gap:12px;">
                         <span style="font-size:.8rem;font-weight:700;color:#334155;min-width:80px;white-space:nowrap;">${s.name}</span>
@@ -10954,7 +10954,7 @@ function renderTeamPerformance() {
             <div style="display:flex;flex-direction:column;gap:10px;">
                 ${data.map((s,i) => {
                     const staffMem = adminStaff.find(x=>x.name===s.name);
-                    const avatarBg = staffMem?.color || 'linear-gradient(135deg,#1e40af,#3b82f6)';
+                    const avatarBg = staffMem?.color || 'linear-gradient(135deg,#2C4A52,#4A7C8A)';
                     const score = s.resolved * 10 + (s.slaPct || 0) * 0.5 - s.pending * 2;
                     return `<div style="display:flex;align-items:center;gap:14px;background:${i===0?'linear-gradient(135deg,#fef9c3,#fef3c7)':i===1?'#f8fafc':i===2?'#faf5ff':'white'};border:1.5px solid ${i===0?'#fcd34d':i===1?'#e2e8f0':i===2?'#d8b4fe':'#f1f5f9'};border-radius:12px;padding:12px 16px;">
                         <span style="font-size:1.6rem;flex-shrink:0;">${medals[i] || '#'+(i+1)}</span>
@@ -10985,7 +10985,7 @@ function renderTeamPerformance() {
             <div style="display:flex;flex-direction:column;gap:8px;">
                 ${data.slice(0,6).map(s => {
                     const pct = Math.round(s.assigned/maxA*100);
-                    const barCol = pct > 80 ? '#ef4444' : pct > 50 ? '#f97316' : '#3b82f6';
+                    const barCol = pct > 80 ? '#ef4444' : pct > 50 ? '#f97316' : '#4A7C8A';
                     return `<div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:.75rem;font-weight:600;color:#475569;min-width:60px;white-space:nowrap;">${s.name}</span>
                         <div style="flex:1;background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;">
@@ -11019,9 +11019,9 @@ function renderTeamPerformance() {
                     const h = Math.round(counts[i]/maxC*100);
                     const isToday = d.toDateString() === new Date().toDateString();
                     return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
-                        <span style="font-size:.62rem;font-weight:700;color:${counts[i]>0?'#3b82f6':'#cbd5e1'};">${counts[i]||''}</span>
-                        <div style="width:100%;background:#f1f5f9;border-radius:4px 4px 2px 2px;height:60px;display:flex;align-items:flex-end;overflow:hidden;${isToday?'box-shadow:0 0 0 2px #3b82f6;border-radius:4px;':''}">
-                            <div style="width:100%;height:${h}%;background:${isToday?'#2563eb':'#93c5fd'};border-radius:3px 3px 0 0;transition:height .5s;"></div>
+                        <span style="font-size:.62rem;font-weight:700;color:${counts[i]>0?'#4A7C8A':'#cbd5e1'};">${counts[i]||''}</span>
+                        <div style="width:100%;background:#f1f5f9;border-radius:4px 4px 2px 2px;height:60px;display:flex;align-items:flex-end;overflow:hidden;${isToday?'box-shadow:0 0 0 2px #4A7C8A;border-radius:4px;':''}">
+                            <div style="width:100%;height:${h}%;background:${isToday?'#2C4A52':'#A8D4DB'};border-radius:3px 3px 0 0;transition:height .5s;"></div>
                         </div>
                         <span style="font-size:.62rem;font-weight:700;color:${isToday?'#1d4ed8':'#94a3b8'};">${dayNames[d.getDay()]}</span>
                     </div>`;
@@ -11443,15 +11443,15 @@ function docRenderList() {
         const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
         return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
-                    onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='${rowBg}'">
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#1e40af;">${d.number}</td>
+                    onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='${rowBg}'">
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
                 <div style="display:flex;justify-content:center;gap:5px;">
-                    <button onclick="docPreviewById('${d.id}')" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#1e40af;transition:.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">ดู</button>
+                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
                     <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
                     <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
                 </div>
@@ -11725,7 +11725,7 @@ document.addEventListener('click', e => {
         </button>
 
         <div style="height:1px;background:var(--border);margin:12px 0;"></div>
-        <button class="mobile-drawer-item" style="color:#1e40af;" onclick="showAdminLoginOverlay();closeMobileDrawer();">
+        <button class="mobile-drawer-item" style="color:#2C4A52;" onclick="showAdminLoginOverlay();closeMobileDrawer();">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>Admin Panel</span>
         </button>
@@ -11735,7 +11735,7 @@ document.addEventListener('click', e => {
                 IT Support
             </div>
             <div class="mobile-drawer-contact-item">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.36 12 19.79 19.79 0 0 1 1.21 3.38 2 2 0 0 1 3.18 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4A7C8A" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.36 12 19.79 19.79 0 0 1 1.21 3.38 2 2 0 0 1 3.18 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16z"/></svg>
                 <span>HO: ex. 1111 / 1610</span>
             </div>
             <div class="mobile-drawer-contact-item">
@@ -11770,7 +11770,7 @@ document.addEventListener('click', e => {
             <button onclick="dupModalSubmitAnyway()" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;color:#475569;cursor:pointer;transition:.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
                 ส่ง Ticket ต่อไป
             </button>
-            <button onclick="dupModalClose()" style="background:linear-gradient(135deg,#1e40af,#3b82f6);border:none;border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;color:white;cursor:pointer;transition:.2s;" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+            <button onclick="dupModalClose()" style="background:linear-gradient(135deg,#2C4A52,#4A7C8A);border:none;border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;color:white;cursor:pointer;transition:.2s;" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
                 ยกเลิก / แก้ไขคำขอ
             </button>
         </div>
@@ -12308,7 +12308,7 @@ function usersRenderTable() {
       ? `<span style="background:#dcfce7;color:#16a34a;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">ใช้งาน</span>`
       : `<span style="background:#fee2e2;color:#dc2626;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;">ระงับ</span>`;
     const avatar = (u.fullname || u.email || '?')[0].toUpperCase();
-    const avatarColor = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4'][_i % 6];
+    const avatarColor = ['#4A7C8A','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4'][_i % 6];
     const emailEsc = encodeURIComponent(u.email);
     const fullnameEsc = (u.fullname || '').replace(/'/g, "&#39;");
     const svgBan  = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
@@ -12363,7 +12363,7 @@ function usersRenderPagination(total, totalPages) {
     font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;
     transition:all .15s;
     ${active
-      ? 'background:linear-gradient(135deg,#1e40af,#2563eb);color:white;border-color:#1e40af;box-shadow:0 2px 8px rgba(30,64,175,.25);'
+      ? 'background:linear-gradient(135deg,#2C4A52,#4A7C8A);color:white;border-color:#2C4A52;box-shadow:0 2px 8px rgba(44,74,82,0.25);'
       : 'background:white;color:#475569;border-color:#e2e8f0;'}
   `;
   const disabledStyle = `
@@ -12376,7 +12376,7 @@ function usersRenderPagination(total, totalPages) {
   let html = '';
   // Prev button
   if (_usersCurrentPage > 1) {
-    html += `<button style="${btnStyle(false)}" onmouseover="this.style.background='#eff6ff';this.style.color='#1e40af'" onmouseout="this.style.background='white';this.style.color='#475569'" onclick="usersGoPage(${_usersCurrentPage - 1})">‹</button>`;
+    html += `<button style="${btnStyle(false)}" onmouseover="this.style.background='#E8F2F4';this.style.color='#2C4A52'" onmouseout="this.style.background='white';this.style.color='#475569'" onclick="usersGoPage(${_usersCurrentPage - 1})">‹</button>`;
   } else {
     html += `<button style="${disabledStyle}" disabled>‹</button>`;
   }
@@ -12393,7 +12393,7 @@ function usersRenderPagination(total, totalPages) {
 
   // Next button
   if (_usersCurrentPage < totalPages) {
-    html += `<button style="${btnStyle(false)}" onmouseover="this.style.background='#eff6ff';this.style.color='#1e40af'" onmouseout="this.style.background='white';this.style.color='#475569'" onclick="usersGoPage(${_usersCurrentPage + 1})">›</button>`;
+    html += `<button style="${btnStyle(false)}" onmouseover="this.style.background='#E8F2F4';this.style.color='#2C4A52'" onmouseout="this.style.background='white';this.style.color='#475569'" onclick="usersGoPage(${_usersCurrentPage + 1})">›</button>`;
   } else {
     html += `<button style="${disabledStyle}" disabled>›</button>`;
   }
@@ -12611,7 +12611,7 @@ window.usersDoResetPassword = usersDoResetPassword;
   }
   #auto-logout-warning .alw-btn {
     width: 100%;
-    background: linear-gradient(135deg, #3b82f6, #0ea5e9);
+    background: linear-gradient(135deg, #4A7C8A, #5BA3B0);
     color: white;
     border: none;
     border-radius: 10px;
