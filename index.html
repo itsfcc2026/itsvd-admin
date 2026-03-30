@@ -6804,15 +6804,17 @@ function gsInitSection() {
 const APPS_SCRIPT_CODE = `// ══════════════════════════════════════════════════════════════
 // IT Service Desk — Google Apps Script (GAS) Backend
 // ══════════════════════════════════════════════════════════════
-// อัปเดตล่าสุด: ย้าย Users ไปเก็บใน Google Sheet แทน ScriptProperties
-//   • Sheet "Tickets" → เก็บข้อมูล ticket ทุกใบ (อ่าน/เขียน realtime)
-//   • Sheet "Users"   → เก็บข้อมูล user accounts (อ่าน/เขียน realtime)
-//   • ScriptProperties → เก็บ Staff, Passwords (ข้อมูลเล็กน้อย)
+// อัปเดตล่าสุด: เพิ่ม Sheet "ClarifyDocs" เก็บเอกสารชี้แจง
+//   • Sheet "Tickets"      → เก็บข้อมูล ticket ทุกใบ (อ่าน/เขียน realtime)
+//   • Sheet "Users"        → เก็บข้อมูล user accounts (อ่าน/เขียน realtime)
+//   • Sheet "ClarifyDocs"  → เก็บเอกสารชี้แจง (มองเห็นร่วมกันทุก account)
+//   • ScriptProperties     → เก็บ Staff, Passwords (ข้อมูลเล็กน้อย)
 // ══════════════════════════════════════════════════════════════
 
 // ── ชื่อ Sheet และ properties keys ───────────────────────────
 var SHEET_TICKETS  = 'Tickets';
 var SHEET_USERS    = 'Users';
+var SHEET_DOCS     = 'ClarifyDocs';
 var PROP_STAFF     = 'IT_STAFF';
 var PROP_PASSWORDS = 'IT_PASSWORDS';
 
@@ -6821,6 +6823,108 @@ var USER_COLS = [
   'email','fullname','password','createdAt','lastLogin',
   'active','token','resetToken','resetExpiry'
 ];
+
+// ══════════════════════════════════════════════════════════════
+// GOOGLE SHEET — CLARIFYDOCS HELPERS
+// ══════════════════════════════════════════════════════════════
+var DOC_COLS = [
+  'id','number','status','category','subject','body',
+  'sig1Name','sig1Date','sig2Name','sig2Date','sig2Show',
+  'sig3Name','sig3Date','createdAt','updatedAt'
+];
+
+function getDocSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_DOCS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_DOCS);
+    sheet.appendRow(DOC_COLS);
+    var hdr = sheet.getRange(1, 1, 1, DOC_COLS.length);
+    hdr.setBackground('#2C4A52');
+    hdr.setFontColor('#ffffff');
+    hdr.setFontWeight('bold');
+    hdr.setFontSize(10);
+    sheet.setFrozenRows(1);
+    // ปรับความกว้าง column
+    sheet.setColumnWidth(1, 160); // id
+    sheet.setColumnWidth(2, 120); // number
+    sheet.setColumnWidth(5, 300); // subject
+    sheet.setColumnWidth(6, 400); // body
+  }
+  return sheet;
+}
+
+function sheetGetDocs() {
+  var sheet = getDocSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, DOC_COLS.length).getValues();
+  return data
+    .filter(function(row){ return row[0] !== ''; })
+    .map(function(row) {
+      var obj = {};
+      DOC_COLS.forEach(function(col, i) {
+        var val = row[i];
+        if (val instanceof Date) {
+          obj[col] = val.toISOString();
+        } else if (col === 'sig2Show') {
+          obj[col] = (val === true || val === 'true' || val === 'TRUE');
+        } else {
+          obj[col] = (val === null || val === undefined) ? '' : val;
+        }
+      });
+      return obj;
+    });
+}
+
+function sheetAddDoc(doc) {
+  var sheet = getDocSheet();
+  var row = DOC_COLS.map(function(col) {
+    var val = doc[col];
+    if (col === 'sig2Show') return val ? 'TRUE' : 'FALSE';
+    if (val === undefined || val === null) return '';
+    return val;
+  });
+  sheet.appendRow(row);
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 1, 1, DOC_COLS.length)
+    .setBackground((lastRow % 2 === 0) ? '#f0f4ff' : '#ffffff');
+}
+
+function sheetUpdateDoc(id, docData) {
+  var sheet = getDocSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { sheetAddDoc(docData); return true; }
+  var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < idCol.length; i++) {
+    if (String(idCol[i][0]) === String(id)) {
+      var row = DOC_COLS.map(function(col) {
+        var val = docData[col];
+        if (col === 'sig2Show') return val ? 'TRUE' : 'FALSE';
+        if (val === undefined || val === null) return '';
+        return val;
+      });
+      sheet.getRange(i + 2, 1, 1, DOC_COLS.length).setValues([row]);
+      return true;
+    }
+  }
+  sheetAddDoc(docData);
+  return true;
+}
+
+function sheetDeleteDoc(id) {
+  var sheet = getDocSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return false;
+  var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = idCol.length - 1; i >= 0; i--) {
+    if (String(idCol[i][0]) === String(id)) {
+      sheet.deleteRow(i + 2);
+      return true;
+    }
+  }
+  return false;
+}
 
 // ── helper: JSON response ─────────────────────────────────────
 function jsonOut(obj) {
@@ -7090,6 +7194,35 @@ function doGet(e) {
   var props  = PropertiesService.getScriptProperties();
 
   try {
+
+    // ── getDocs ─────────────────────────────────────────────────
+    if (action === 'getDocs') {
+      return jsonOut({ status: 'ok', data: sheetGetDocs() });
+    }
+
+    // ── addDoc ──────────────────────────────────────────────────
+    if (action === 'addDoc') {
+      var doc = parseParam(e.parameter.data, {});
+      if (!doc.id) return jsonOut({ status: 'error', message: 'no doc id' });
+      var existing = sheetGetDocs();
+      var dup = existing.some(function(d){ return d.id === doc.id; });
+      if (!dup) sheetAddDoc(doc);
+      return jsonOut({ status: 'ok' });
+    }
+
+    // ── updateDoc ───────────────────────────────────────────────
+    if (action === 'updateDoc') {
+      sheetUpdateDoc(e.parameter.id, parseParam(e.parameter.data, {}));
+      return jsonOut({ status: 'ok' });
+    }
+
+    // ── deleteDoc ───────────────────────────────────────────────
+    if (action === 'deleteDoc') {
+      var docId = e.parameter.id || '';
+      if (!docId) return jsonOut({ status: 'error', message: 'no doc id' });
+      sheetDeleteDoc(docId);
+      return jsonOut({ status: 'ok' });
+    }
 
     // ── getTickets ──────────────────────────────────────────────
     if (action === 'getTickets') {
@@ -11419,35 +11552,64 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── Shared storage helpers (ใช้ window.storage เพื่อให้ทุก account มองเห็นข้อมูลเดียวกัน) ──
-let _docCache = null; // cache ใน memory เพื่อการทำงาน sync
+// ── cache in-memory ──────────────────────────────────────────
+let _docCache = [];
 
-async function docGetAllAsync() {
+function docGetAll() { return _docCache; }
+
+// ── โหลดจาก Google Sheet (primary) → fallback window.storage ─
+async function docLoadFromGAS() {
     try {
-        const result = await window.storage.get(DOC_KEY, true); // shared = true
-        _docCache = result ? JSON.parse(result.value) : [];
-    } catch (e) {
+        const res = await gasFetch('getDocs', {});
+        if (res && res.status === 'ok' && Array.isArray(res.data)) {
+            _docCache = res.data;
+            // sync ขึ้น window.storage เผื่อ GAS ล่ม
+            try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e2) {}
+            return true;
+        }
+    } catch(e) {
+        console.warn('[docLoadFromGAS] GAS unavailable, fallback to shared storage:', e.message);
+    }
+    // Fallback: โหลดจาก window.storage (shared)
+    try {
+        const r = await window.storage.get(DOC_KEY, true);
+        _docCache = r ? JSON.parse(r.value) : [];
+    } catch(e) {
         _docCache = [];
     }
-    return _docCache;
+    return false;
 }
 
-async function docSaveAllAsync(docs) {
-    _docCache = docs;
+// ── บันทึก doc เดียวไปยัง GAS + window.storage ───────────────
+async function docSyncToGAS(doc, isEdit) {
     try {
-        await window.storage.set(DOC_KEY, JSON.stringify(docs), true); // shared = true
-    } catch (e) {
-        console.error('docSaveAll error:', e);
+        if (isEdit) {
+            await gasFetchWrite('updateDoc', { id: doc.id, data: JSON.stringify(doc) });
+        } else {
+            await gasFetchWrite('addDoc', { data: JSON.stringify(doc) });
+        }
+    } catch(e) {
+        console.warn('[docSyncToGAS] write failed:', e.message);
     }
+    // window.storage เสมอ (shared backup)
+    try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e) {}
 }
 
-// ── sync wrappers ที่ใช้ cache (เพื่อให้ code เดิมทำงานได้) ──
-function docGetAll() { return _docCache || []; }
-function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
+// ── ลบ doc จาก GAS + window.storage ─────────────────────────
+async function docDeleteFromGAS(id) {
+    try {
+        await gasFetchWrite('deleteDoc', { id });
+    } catch(e) {
+        console.warn('[docDeleteFromGAS] delete failed:', e.message);
+    }
+    try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e) {}
+}
 
-// ── โหลดข้อมูลจาก shared storage เมื่อเปิดหน้า doc-clarify ──
+// ── init: โหลดแล้ว render list ───────────────────────────────
 async function docInitSharedStorage() {
-    await docGetAllAsync();
+    const tbody = document.getElementById('doc-list-tbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:#94a3b8;font-size:.85rem;">⏳ กำลังโหลดข้อมูลจาก Google Sheet...</td></tr>`;
+    await docLoadFromGAS();
     docRenderList();
 }
 
@@ -11457,8 +11619,8 @@ function docShowView(view) {
     document.getElementById('doc-view-list').style.display = view === 'list' ? '' : 'none';
     document.getElementById('doc-view-form').style.display = view === 'form' ? '' : 'none';
     if (view === 'list') {
-        // โหลดจาก shared storage ก่อน แล้วค่อย render
-        docGetAllAsync().then(() => docRenderList());
+        // โหลดใหม่จาก GAS แล้วค่อย render
+        docLoadFromGAS().then(() => docRenderList());
     }
     if (view === 'form') {
         // แสดงปีปัจจุบันเสมอ
@@ -11621,7 +11783,6 @@ async function docSave(status) {
         showToast('⚠️ กรุณากรอกเลขที่เอกสารและรายละเอียดเรื่องให้ครบ', 'error');
         return;
     }
-    const docs = docGetAll();
     const now = new Date().toISOString();
     const docData = {
         id: _docEditId || ('DOC-' + Date.now()),
@@ -11644,26 +11805,28 @@ async function docSave(status) {
         sig3Name:      'นิติพงศ์ ธนาพิสุทธิวงศ์',
         sig3Date:      document.getElementById('sig3-date').value,
         updatedAt: now,
-        createdAt: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdAt || now) : now,
+        createdAt: _docEditId ? (_docCache.find(d=>d.id===_docEditId)?.createdAt || now) : now,
     };
+    // อัปเดต cache ในทันที
     if (_docEditId) {
-        const idx = docs.findIndex(d => d.id === _docEditId);
-        if (idx >= 0) docs[idx] = docData;
+        const idx = _docCache.findIndex(d => d.id === _docEditId);
+        if (idx >= 0) _docCache[idx] = docData; else _docCache.unshift(docData);
     } else {
-        docs.unshift(docData);
+        _docCache.unshift(docData);
     }
-    await docSaveAllAsync(docs);
     const label = status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง';
     showToast(`✅ บันทึกเอกสาร "${number}" (${label}) เรียบร้อย`, 'success');
+    // sync ไป GAS + window.storage (background)
+    docSyncToGAS(docData, !!_docEditId);
     docShowView('list');
 }
 
 async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
-    const docs = await docGetAllAsync();
-    await docSaveAllAsync(docs.filter(d => d.id !== id));
+    _docCache = _docCache.filter(d => d.id !== id);
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
+    await docDeleteFromGAS(id);
 }
 
 function docRenderList() {
