@@ -3267,12 +3267,6 @@
                     <p style="color:var(--text-muted);font-size:.82rem;">สร้างและจัดการเอกสารชี้แจงทางเทคนิค IT</p>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="docInitSharedStorage()"
-                        style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 14px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#475569;transition:.15s;"
-                        onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'" title="โหลดข้อมูลใหม่จาก Google Sheet">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-                        รีเฟรช
-                    </button>
                     <button onclick="docShowView('list')"
                         style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 14px;font-size:.82rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#475569;transition:.15s;"
                         onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
@@ -6807,160 +6801,56 @@ function gsInitSection() {
 }
 
 // โค้ด Apps Script เก็บเป็น JS string เพื่อป้องกัน HTML entity encode
-const APPS_SCRIPT_CODE = `// ==============================================================
-// IT Service Desk - Google Apps Script (GAS) Backend
-// ==============================================================
-// อัปเดตล่าสุด: เพิ่ม Sheet "ClarifyDocs" เก็บเอกสารชี้แจง
-//   * Sheet "Tickets"      -> เก็บข้อมูล ticket ทุกใบ (อ่าน/เขียน realtime)
-//   * Sheet "Users"        -> เก็บข้อมูล user accounts (อ่าน/เขียน realtime)
-//   * Sheet "ClarifyDocs"  -> เก็บเอกสารชี้แจง (มองเห็นร่วมกันทุก account)
-//   * ScriptProperties     -> เก็บ Staff, Passwords (ข้อมูลเล็กน้อย)
-// ==============================================================
+const APPS_SCRIPT_CODE = `// ══════════════════════════════════════════════════════════════
+// IT Service Desk — Google Apps Script (GAS) Backend
+// ══════════════════════════════════════════════════════════════
+// อัปเดตล่าสุด: ย้าย Users ไปเก็บใน Google Sheet แทน ScriptProperties
+//   • Sheet "Tickets" → เก็บข้อมูล ticket ทุกใบ (อ่าน/เขียน realtime)
+//   • Sheet "Users"   → เก็บข้อมูล user accounts (อ่าน/เขียน realtime)
+//   • ScriptProperties → เก็บ Staff, Passwords (ข้อมูลเล็กน้อย)
+// ══════════════════════════════════════════════════════════════
 
-// -- ชื่อ Sheet และ properties keys ---------------------------
+// ── ชื่อ Sheet และ properties keys ───────────────────────────
 var SHEET_TICKETS  = 'Tickets';
 var SHEET_USERS    = 'Users';
-var SHEET_DOCS     = 'ClarifyDocs';
 var PROP_STAFF     = 'IT_STAFF';
 var PROP_PASSWORDS = 'IT_PASSWORDS';
 
-// -- Users column definition -----------------------------------
+// ── Users column definition ───────────────────────────────────
 var USER_COLS = [
   'email','fullname','password','createdAt','lastLogin',
   'active','token','resetToken','resetExpiry'
 ];
 
-// ==============================================================
-// GOOGLE SHEET - CLARIFYDOCS HELPERS
-// ==============================================================
-var DOC_COLS = [
-  'id','number','status','category','subject','body',
-  'sig1Name','sig1Date','sig2Name','sig2Date','sig2Show',
-  'sig3Name','sig3Date','createdAt','updatedAt'
-];
-
-function getDocSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_DOCS);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_DOCS);
-    sheet.appendRow(DOC_COLS);
-    var hdr = sheet.getRange(1, 1, 1, DOC_COLS.length);
-    hdr.setBackground('#2C4A52');
-    hdr.setFontColor('#ffffff');
-    hdr.setFontWeight('bold');
-    hdr.setFontSize(10);
-    sheet.setFrozenRows(1);
-    // ปรับความกว้าง column
-    sheet.setColumnWidth(1, 160); // id
-    sheet.setColumnWidth(2, 120); // number
-    sheet.setColumnWidth(5, 300); // subject
-    sheet.setColumnWidth(6, 400); // body
-  }
-  return sheet;
-}
-
-function sheetGetDocs() {
-  var sheet = getDocSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, DOC_COLS.length).getValues();
-  return data
-    .filter(function(row){ return row[0] !== ''; })
-    .map(function(row) {
-      var obj = {};
-      DOC_COLS.forEach(function(col, i) {
-        var val = row[i];
-        if (val instanceof Date) {
-          obj[col] = val.toISOString();
-        } else if (col === 'sig2Show') {
-          obj[col] = (val === true || val === 'true' || val === 'TRUE');
-        } else {
-          obj[col] = (val === null || val === undefined) ? '' : val;
-        }
-      });
-      return obj;
-    });
-}
-
-function sheetAddDoc(doc) {
-  var sheet = getDocSheet();
-  var row = DOC_COLS.map(function(col) {
-    var val = doc[col];
-    if (col === 'sig2Show') return val ? 'TRUE' : 'FALSE';
-    if (val === undefined || val === null) return '';
-    return val;
-  });
-  sheet.appendRow(row);
-  var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, DOC_COLS.length)
-    .setBackground((lastRow % 2 === 0) ? '#f0f4ff' : '#ffffff');
-}
-
-function sheetUpdateDoc(id, docData) {
-  var sheet = getDocSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) { sheetAddDoc(docData); return true; }
-  var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = 0; i < idCol.length; i++) {
-    if (String(idCol[i][0]) === String(id)) {
-      var row = DOC_COLS.map(function(col) {
-        var val = docData[col];
-        if (col === 'sig2Show') return val ? 'TRUE' : 'FALSE';
-        if (val === undefined || val === null) return '';
-        return val;
-      });
-      sheet.getRange(i + 2, 1, 1, DOC_COLS.length).setValues([row]);
-      return true;
-    }
-  }
-  sheetAddDoc(docData);
-  return true;
-}
-
-function sheetDeleteDoc(id) {
-  var sheet = getDocSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return false;
-  var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = idCol.length - 1; i >= 0; i--) {
-    if (String(idCol[i][0]) === String(id)) {
-      sheet.deleteRow(i + 2);
-      return true;
-    }
-  }
-  return false;
-}
-
-// -- helper: JSON response -------------------------------------
+// ── helper: JSON response ─────────────────────────────────────
 function jsonOut(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// -- helper: SHA-256 hash --------------------------------------
+// ── helper: SHA-256 hash ──────────────────────────────────────
 function hashPassword(password) {
   var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password, Utilities.Charset.UTF_8);
   return raw.map(function(b){ return ('0' + ((b < 0 ? b + 256 : b).toString(16))).slice(-2); }).join('');
 }
 
-// -- helper: generate token ------------------------------------
+// ── helper: generate token ────────────────────────────────────
 function makeToken(email) {
   var rand = Utilities.getUuid();
   return Utilities.base64Encode(email + ':' + rand + ':' + new Date().getTime());
 }
 
-// -- helper: parseParam ----------------------------------------
+// ── helper: parseParam ────────────────────────────────────────
 function parseParam(val, fallback) {
   if (val === undefined || val === null || val === '') return fallback;
   if (typeof val === 'object') return val;
   try { return JSON.parse(val); } catch(e) { return fallback; }
 }
 
-// ==============================================================
-// GOOGLE SHEET - TICKET HELPERS
-// ==============================================================
+// ══════════════════════════════════════════════════════════════
+// GOOGLE SHEET — TICKET HELPERS
+// ══════════════════════════════════════════════════════════════
 var TICKET_COLS = [
   'id','date','resolvedAt','user','email','section','dept',
   'category','desc','priority','status','adminNote','assignee',
@@ -7068,11 +6958,11 @@ function sheetSaveAllTickets(tickets) {
   });
 }
 
-// ==============================================================
-// GOOGLE SHEET - USER HELPERS (แทน ScriptProperties)
-// ==============================================================
+// ══════════════════════════════════════════════════════════════
+// GOOGLE SHEET — USER HELPERS (แทน ScriptProperties)
+// ══════════════════════════════════════════════════════════════
 
-// -- ดึงหรือสร้าง Sheet Users ----------------------------------
+// ── ดึงหรือสร้าง Sheet Users ──────────────────────────────────
 function getUserSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_USERS);
@@ -7094,7 +6984,7 @@ function getUserSheet() {
   return sheet;
 }
 
-// -- อ่าน users ทั้งหมด -> คืนเป็น object { email: userObj } --
+// ── อ่าน users ทั้งหมด → คืนเป็น object { email: userObj } ──
 function sheetGetUsers() {
   var sheet = getUserSheet();
   var lastRow = sheet.getLastRow();
@@ -7121,7 +7011,7 @@ function sheetGetUsers() {
   return users;
 }
 
-// -- หา row index ของ email (คืน -1 ถ้าไม่เจอ) ----------------
+// ── หา row index ของ email (คืน -1 ถ้าไม่เจอ) ────────────────
 function findUserRow(email) {
   var sheet = getUserSheet();
   var lastRow = sheet.getLastRow();
@@ -7133,7 +7023,7 @@ function findUserRow(email) {
   return -1;
 }
 
-// -- เขียน user object ลง row ----------------------------------
+// ── เขียน user object ลง row ──────────────────────────────────
 function userToRow(obj) {
   return USER_COLS.map(function(col) {
     var val = obj[col];
@@ -7142,7 +7032,7 @@ function userToRow(obj) {
   });
 }
 
-// -- เพิ่ม user ใหม่ -------------------------------------------
+// ── เพิ่ม user ใหม่ ───────────────────────────────────────────
 function sheetAddUser(userObj) {
   var sheet = getUserSheet();
   sheet.appendRow(userToRow(userObj));
@@ -7151,7 +7041,7 @@ function sheetAddUser(userObj) {
     .setBackground(lastRow % 2 === 0 ? '#f0fdf4' : '#ffffff');
 }
 
-// -- อัปเดต user ที่มีอยู่แล้ว --------------------------------
+// ── อัปเดต user ที่มีอยู่แล้ว ────────────────────────────────
 function sheetUpdateUser(email, userObj) {
   var rowIdx = findUserRow(email);
   if (rowIdx === -1) {
@@ -7162,7 +7052,7 @@ function sheetUpdateUser(email, userObj) {
   sheet.getRange(rowIdx, 1, 1, USER_COLS.length).setValues([userToRow(userObj)]);
 }
 
-// -- ลบ user ---------------------------------------------------
+// ── ลบ user ───────────────────────────────────────────────────
 function sheetDeleteUser(email) {
   var rowIdx = findUserRow(email);
   if (rowIdx === -1) return false;
@@ -7170,7 +7060,7 @@ function sheetDeleteUser(email) {
   return true;
 }
 
-// -- migrate: ย้าย users จาก ScriptProperties -> Sheet (รันครั้งเดียว) --
+// ── migrate: ย้าย users จาก ScriptProperties → Sheet (รันครั้งเดียว) ──
 function migrateUsersToSheet() {
   var props = PropertiesService.getScriptProperties();
   var raw   = props.getProperty('IT_USERS');
@@ -7181,7 +7071,7 @@ function migrateUsersToSheet() {
   // เช็คว่า sheet มีข้อมูลแล้วหรือยัง
   var sheet = getUserSheet();
   if (sheet.getLastRow() > 1) {
-    Logger.log('Users sheet already has data - skipping migration to avoid duplicates');
+    Logger.log('Users sheet already has data — skipping migration to avoid duplicates');
     return;
   }
   list.forEach(function(u) { sheetAddUser(u); });
@@ -7192,56 +7082,27 @@ function migrateUsersToSheet() {
   Logger.log('IT_USERS backed up as IT_USERS_BACKUP and deleted from Properties');
 }
 
-// ==============================================================
+// ══════════════════════════════════════════════════════════════
 // doGet: รับทุก action
-// ==============================================================
+// ══════════════════════════════════════════════════════════════
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action ? e.parameter.action : '';
   var props  = PropertiesService.getScriptProperties();
 
   try {
 
-    // -- getDocs -------------------------------------------------
-    if (action === 'getDocs') {
-      return jsonOut({ status: 'ok', data: sheetGetDocs() });
-    }
-
-    // -- addDoc --------------------------------------------------
-    if (action === 'addDoc') {
-      var doc = parseParam(e.parameter.data, {});
-      if (!doc.id) return jsonOut({ status: 'error', message: 'no doc id' });
-      var existing = sheetGetDocs();
-      var dup = existing.some(function(d){ return d.id === doc.id; });
-      if (!dup) sheetAddDoc(doc);
-      return jsonOut({ status: 'ok' });
-    }
-
-    // -- updateDoc -----------------------------------------------
-    if (action === 'updateDoc') {
-      sheetUpdateDoc(e.parameter.id, parseParam(e.parameter.data, {}));
-      return jsonOut({ status: 'ok' });
-    }
-
-    // -- deleteDoc -----------------------------------------------
-    if (action === 'deleteDoc') {
-      var docId = e.parameter.id || '';
-      if (!docId) return jsonOut({ status: 'error', message: 'no doc id' });
-      sheetDeleteDoc(docId);
-      return jsonOut({ status: 'ok' });
-    }
-
-    // -- getTickets ----------------------------------------------
+    // ── getTickets ──────────────────────────────────────────────
     if (action === 'getTickets') {
       return jsonOut({ status: 'ok', data: sheetGetTickets() });
     }
 
-    // -- saveTickets ---------------------------------------------
+    // ── saveTickets ─────────────────────────────────────────────
     if (action === 'saveTickets') {
       sheetSaveAllTickets(parseParam(e.parameter.data, []));
       return jsonOut({ status: 'ok' });
     }
 
-    // -- addTicket -----------------------------------------------
+    // ── addTicket ───────────────────────────────────────────────
     if (action === 'addTicket') {
       var ticket = parseParam(e.parameter.data, {});
       if (!ticket.id) return jsonOut({ status: 'error', message: 'no ticket id' });
@@ -7251,31 +7112,31 @@ function doGet(e) {
       return jsonOut({ status: 'ok' });
     }
 
-    // -- updateTicket --------------------------------------------
+    // ── updateTicket ────────────────────────────────────────────
     if (action === 'updateTicket') {
       sheetUpdateTicket(e.parameter.id, parseParam(e.parameter.data, {}));
       return jsonOut({ status: 'ok' });
     }
 
-    // -- getStaff ------------------------------------------------
+    // ── getStaff ────────────────────────────────────────────────
     if (action === 'getStaff') {
       var raw = props.getProperty(PROP_STAFF);
       return jsonOut({ status: 'ok', data: raw ? JSON.parse(raw) : [] });
     }
 
-    // -- saveStaff -----------------------------------------------
+    // ── saveStaff ───────────────────────────────────────────────
     if (action === 'saveStaff') {
       props.setProperty(PROP_STAFF, JSON.stringify(parseParam(e.parameter.data, [])));
       return jsonOut({ status: 'ok' });
     }
 
-    // -- getPasswords --------------------------------------------
+    // ── getPasswords ────────────────────────────────────────────
     if (action === 'getPasswords') {
       var raw = props.getProperty(PROP_PASSWORDS);
       return jsonOut({ status: 'ok', data: raw ? JSON.parse(raw) : {} });
     }
 
-    // -- savePassword --------------------------------------------
+    // ── savePassword ────────────────────────────────────────────
     if (action === 'savePassword') {
       var username = e.parameter.username;
       var password = e.parameter.password;
@@ -7286,7 +7147,7 @@ function doGet(e) {
       return jsonOut({ status: 'ok' });
     }
 
-    // -- register -------------------------------------------------
+    // ── register ─────────────────────────────────────────────────
     if (action === 'register') {
       var email    = (e.parameter.email    || '').toLowerCase().trim();
       var password = (e.parameter.password || '').trim();
@@ -7311,7 +7172,7 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
-    // -- login -----------------------------------------------------
+    // ── login ─────────────────────────────────────────────────────
     if (action === 'login') {
       var email    = (e.parameter.email    || '').toLowerCase().trim();
       var password = (e.parameter.password || '').trim();
@@ -7328,7 +7189,7 @@ function doGet(e) {
       return jsonOut({ ok: true, token: token, user: { email: email, fullname: user.fullname || '' } });
     }
 
-    // -- requestResetPassword --------------------------------------
+    // ── requestResetPassword ──────────────────────────────────────
     if (action === 'requestResetPassword') {
       var email = (e.parameter.email || '').toLowerCase().trim();
       if (!email) return jsonOut({ ok: false, error: 'กรุณากรอก Email' });
@@ -7350,7 +7211,7 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
-    // -- resetPassword ---------------------------------------------
+    // ── resetPassword ─────────────────────────────────────────────
     if (action === 'resetPassword') {
       var email       = (e.parameter.email       || '').toLowerCase().trim();
       var resetToken  = (e.parameter.resetToken  || '').trim();
@@ -7369,7 +7230,7 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
-    // -- getUsers (admin only) -------------------------------------
+    // ── getUsers (admin only) ─────────────────────────────────────
     if (action === 'getUsers') {
       var adminKey  = (e.parameter.adminKey || '');
       var storedKey = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
@@ -7381,7 +7242,7 @@ function doGet(e) {
       return jsonOut({ ok: true, data: list });
     }
 
-    // -- deleteUser (admin only) -----------------------------------
+    // ── deleteUser (admin only) ───────────────────────────────────
     if (action === 'deleteUser') {
       var adminKey    = (e.parameter.adminKey    || '');
       var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
@@ -7394,7 +7255,7 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
-    // -- toggleUser (admin only) -----------------------------------
+    // ── toggleUser (admin only) ───────────────────────────────────
     if (action === 'toggleUser') {
       var adminKey    = (e.parameter.adminKey    || '');
       var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
@@ -7408,7 +7269,7 @@ function doGet(e) {
       return jsonOut({ ok: true, active: users[targetEmail].active });
     }
 
-    // -- resetUserPassword (admin only) ----------------------------
+    // ── resetUserPassword (admin only) ────────────────────────────
     if (action === 'resetUserPassword') {
       var adminKey    = (e.parameter.adminKey    || '');
       var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
@@ -7424,24 +7285,24 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
-    // -- migrateUsers (รันครั้งเดียวผ่าน URL) --------------------
+    // ── migrateUsers (รันครั้งเดียวผ่าน URL) ────────────────────
     if (action === 'migrateUsers') {
       var adminKey  = (e.parameter.adminKey || '');
       var storedKey = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
       if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
       migrateUsersToSheet();
-      return jsonOut({ ok: true, message: 'Migration complete - check Execution Log' });
+      return jsonOut({ ok: true, message: 'Migration complete — check Execution Log' });
     }
 
-    // -- default ping ---------------------------------------------
-    return jsonOut({ status: 'ok', message: 'IT Service Desk - Google Sheet backend v2 (Users in Sheet)' });
+    // ── default ping ─────────────────────────────────────────────
+    return jsonOut({ status: 'ok', message: 'IT Service Desk — Google Sheet backend v2 (Users in Sheet)' });
 
   } catch(err) {
     return jsonOut({ status: 'error', message: err.toString() });
   }
 }
 
-// -- doPost ----------------------------------------------------
+// ── doPost ────────────────────────────────────────────────────
 function doPost(e) {
   try {
     var params = {};
@@ -11558,67 +11419,35 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── cache in-memory ──────────────────────────────────────────
-let _docCache = [];
+// ── Shared storage helpers (ใช้ window.storage เพื่อให้ทุก account มองเห็นข้อมูลเดียวกัน) ──
+let _docCache = null; // cache ใน memory เพื่อการทำงาน sync
 
-function docGetAll() { return _docCache; }
-
-// ── โหลดจาก Google Sheet (primary) → fallback window.storage ─
-async function docLoadFromGAS() {
+async function docGetAllAsync() {
     try {
-        const res = await gasFetch('getDocs', {});
-        if (res && res.status === 'ok' && Array.isArray(res.data)) {
-            _docCache = res.data;
-            // sync ขึ้น window.storage เผื่อ GAS ล่ม
-            try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e2) {}
-            return true;
-        }
-    } catch(e) {
-        console.warn('[docLoadFromGAS] GAS unavailable, fallback to shared storage:', e.message);
-    }
-    // Fallback: โหลดจาก window.storage (shared)
-    try {
-        const r = await window.storage.get(DOC_KEY, true);
-        _docCache = r ? JSON.parse(r.value) : [];
-    } catch(e) {
+        const result = await window.storage.get(DOC_KEY, true); // shared = true
+        _docCache = result ? JSON.parse(result.value) : [];
+    } catch (e) {
         _docCache = [];
     }
-    return false;
+    return _docCache;
 }
 
-// ── บันทึก doc ไปยัง GAS + window.storage แล้วรอให้เสร็จก่อน ─
-async function docSyncToGAS(doc, isEdit) {
-    // บันทึก window.storage ก่อนเสมอ (เร็ว)
-    try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e) {}
-    // แล้วค่อย sync GAS (ช้ากว่า)
+async function docSaveAllAsync(docs) {
+    _docCache = docs;
     try {
-        if (isEdit) {
-            await gasFetchWrite('updateDoc', { id: doc.id, data: JSON.stringify(doc) });
-        } else {
-            await gasFetchWrite('addDoc', { data: JSON.stringify(doc) });
-        }
-    } catch(e) {
-        console.warn('[docSyncToGAS] GAS write failed (data saved in shared storage):', e.message);
+        await window.storage.set(DOC_KEY, JSON.stringify(docs), true); // shared = true
+    } catch (e) {
+        console.error('docSaveAll error:', e);
     }
 }
 
-// ── ลบ doc จาก GAS + window.storage ─────────────────────────
-async function docDeleteFromGAS(id) {
-    // อัปเดต window.storage ก่อน
-    try { await window.storage.set(DOC_KEY, JSON.stringify(_docCache), true); } catch(e) {}
-    // แล้วค่อยลบ GAS
-    try {
-        await gasFetchWrite('deleteDoc', { id });
-    } catch(e) {
-        console.warn('[docDeleteFromGAS] GAS delete failed:', e.message);
-    }
-}
+// ── sync wrappers ที่ใช้ cache (เพื่อให้ code เดิมทำงานได้) ──
+function docGetAll() { return _docCache || []; }
+function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
 
-// ── init: โหลดแล้ว render list ───────────────────────────────
+// ── โหลดข้อมูลจาก shared storage เมื่อเปิดหน้า doc-clarify ──
 async function docInitSharedStorage() {
-    const tbody = document.getElementById('doc-list-tbody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:#94a3b8;font-size:.85rem;">⏳ กำลังโหลดข้อมูลจาก Google Sheet...</td></tr>`;
-    await docLoadFromGAS();
+    await docGetAllAsync();
     docRenderList();
 }
 
@@ -11628,8 +11457,8 @@ function docShowView(view) {
     document.getElementById('doc-view-list').style.display = view === 'list' ? '' : 'none';
     document.getElementById('doc-view-form').style.display = view === 'form' ? '' : 'none';
     if (view === 'list') {
-        // render จาก cache ที่อัปเดตแล้ว (ไม่ reload จาก GAS เพื่อป้องกันข้อมูลหาย)
-        docRenderList();
+        // โหลดจาก shared storage ก่อน แล้วค่อย render
+        docGetAllAsync().then(() => docRenderList());
     }
     if (view === 'form') {
         // แสดงปีปัจจุบันเสมอ
@@ -11792,6 +11621,7 @@ async function docSave(status) {
         showToast('⚠️ กรุณากรอกเลขที่เอกสารและรายละเอียดเรื่องให้ครบ', 'error');
         return;
     }
+    const docs = docGetAll();
     const now = new Date().toISOString();
     const docData = {
         id: _docEditId || ('DOC-' + Date.now()),
@@ -11814,28 +11644,26 @@ async function docSave(status) {
         sig3Name:      'นิติพงศ์ ธนาพิสุทธิวงศ์',
         sig3Date:      document.getElementById('sig3-date').value,
         updatedAt: now,
-        createdAt: _docEditId ? (_docCache.find(d=>d.id===_docEditId)?.createdAt || now) : now,
+        createdAt: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdAt || now) : now,
     };
-    // อัปเดต cache ในทันที
     if (_docEditId) {
-        const idx = _docCache.findIndex(d => d.id === _docEditId);
-        if (idx >= 0) _docCache[idx] = docData; else _docCache.unshift(docData);
+        const idx = docs.findIndex(d => d.id === _docEditId);
+        if (idx >= 0) docs[idx] = docData;
     } else {
-        _docCache.unshift(docData);
+        docs.unshift(docData);
     }
+    await docSaveAllAsync(docs);
     const label = status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง';
     showToast(`✅ บันทึกเอกสาร "${number}" (${label}) เรียบร้อย`, 'success');
-    // await sync ไป GAS + window.storage ก่อน แล้วค่อยแสดง list
-    await docSyncToGAS(docData, !!_docEditId);
     docShowView('list');
 }
 
 async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
-    _docCache = _docCache.filter(d => d.id !== id);
+    const docs = await docGetAllAsync();
+    await docSaveAllAsync(docs.filter(d => d.id !== id));
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
-    await docDeleteFromGAS(id);
 }
 
 function docRenderList() {
