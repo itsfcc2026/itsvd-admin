@@ -4113,50 +4113,41 @@ function setGasDbUrl(url) {
 }
 
 // ── GAS fetch helper ─────────────────────────────────────────────────────────
-// READ actions  → GET  (รองรับ CORS, response อ่านได้)
-// WRITE actions → POST form-urlencoded + redirect:follow (GAS Web App รองรับ)
+// ใช้ GET เสมอ — GAS Web App ไม่รองรับ CORS preflight (OPTIONS) ของ POST
+// ดังนั้น POST ทุก action จะถูก browser block ก่อนถึง GAS
+// วิธีแก้: ส่งทุก action เป็น GET query string (GAS doGet รองรับทุก action)
 async function gasFetch(action, payload = {}) {
     const url = getGasDbUrl();
     if (!url) throw new Error('NO_GAS_URL');
 
-    const WRITE_ACTIONS = ['saveTickets','addTicket','updateTicket','saveStaff','savePassword'];
-    const isWrite = WRITE_ACTIONS.includes(action);
-
     async function _doFetch() {
-        let r;
+        const params = new URLSearchParams({ action });
+        Object.entries(payload).forEach(([k, v]) => {
+            const str = typeof v === 'object' ? JSON.stringify(v) : String(v);
+            params.append(k, str);
+        });
 
-        if (isWrite) {
-            // POST → form-urlencoded (GAS doPost รับได้, redirect follow ใช้ได้กับ same-site)
-            const body = new URLSearchParams();
-            body.append('action', action);
-            Object.entries(payload).forEach(([k, v]) => {
-                body.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-            });
-            r = await fetch(url, {
-                method: 'POST',
-                redirect: 'follow',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
-        } else {
-            // GET → query string (อ่านข้อมูล)
-            const params = new URLSearchParams({ action });
-            Object.entries(payload).forEach(([k, v]) => {
-                params.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-            });
-            r = await fetch(url + '?' + params.toString(), {
-                method: 'GET',
-                redirect: 'follow',
-                cache: 'no-store'
-            });
+        const fullUrl = url + '?' + params.toString();
+
+        // ตรวจ URL ยาวเกิน (browser limit ~8000 chars)
+        if (fullUrl.length > 7500) {
+            console.warn('[gasFetch] URL too long for action:', action, '— length:', fullUrl.length);
+            throw new Error('GAS_URL_TOO_LONG');
         }
+
+        const r = await fetch(fullUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            cache: 'no-store',
+            mode: 'cors'
+        });
 
         if (!r.ok) throw new Error('GAS_HTTP_' + r.status);
         const text = await r.text();
         try {
             return JSON.parse(text);
         } catch(e) {
-            console.warn('[gasFetch] non-JSON response for', action, ':', text.slice(0, 300));
+            console.warn('[gasFetch] non-JSON for', action, ':', text.slice(0, 300));
             throw new Error('GAS_NON_JSON');
         }
     }
@@ -4168,11 +4159,50 @@ async function gasFetch(action, payload = {}) {
             return await _doFetch();
         } catch(e) {
             lastErr = e;
-            console.warn(`[gasFetch] attempt ${attempt+1} failed for "${action}":`, e.message);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+            if (e.message !== 'GAS_URL_TOO_LONG') {
+                console.warn(`[gasFetch] attempt ${attempt+1} failed for "${action}":`, e.message);
+            }
+            if (attempt < 2 && e.message !== 'GAS_URL_TOO_LONG') {
+                await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+            } else {
+                break;
+            }
         }
     }
     throw lastErr;
+}
+
+// ── GAS write helper — ส่ง write action ผ่าน GET (GAS doGet รับทุก action) ──
+// สำหรับ payload ใหญ่ (ticket object) → แตก field เป็น param แยก
+async function gasFetchWrite(action, payload = {}) {
+    // ลอง GET ตรงก่อน
+    try {
+        return await gasFetch(action, payload);
+    } catch(e) {
+        if (e.message !== 'GAS_URL_TOO_LONG') throw e;
+    }
+
+    // URL ยาวเกิน → ส่งผ่าน no-cors POST (ไม่ได้ response แต่ GAS รับได้)
+    console.warn('[gasFetchWrite] URL too long — falling back to no-cors POST for:', action);
+    const url = getGasDbUrl();
+    const body = new URLSearchParams({ action });
+    Object.entries(payload).forEach(([k, v]) => {
+        body.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    });
+    try {
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',       // ไม่ต้อง CORS preflight — GAS รับ POST ได้
+            redirect: 'follow',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString()
+        });
+        // no-cors → response เป็น opaque (ไม่รู้ผล) → return ok สมมติ
+        return { status: 'ok' };
+    } catch(postErr) {
+        console.warn('[gasFetchWrite] no-cors POST also failed:', postErr.message);
+        throw postErr;
+    }
 }
 
 // ── อ่าน tickets — GAS คือ source of truth, localStorage เป็น offline cache ──
@@ -4209,10 +4239,10 @@ async function dbSaveTickets(data) {
     try {
         // ถ้า data ไม่เกิน 30 tickets ส่งทั้งก้อน — ถ้ามากกว่านั้นส่งทีละตัวเพื่อป้องกัน URL ยาวเกิน
         if (data.length <= 30) {
-            await gasFetch('saveTickets', { data });
+            await gasFetchWrite('saveTickets', { data });
         } else {
             for (const t of data) {
-                await gasFetch('updateTicket', { id: t.id, data: t });
+                await gasFetchWrite('updateTicket', { id: t.id, data: t });
             }
         }
     } catch(e) {
@@ -4226,7 +4256,7 @@ async function dbAddTicket(ticket) {
     if (!adminTickets.find(t => t.id === ticket.id)) adminTickets.unshift(ticket);
     localStorage.setItem(TICKETS_KEY, JSON.stringify(adminTickets)); // update cache
     // ส่งขึ้น GAS — throw ถ้าล้มเหลวเพื่อให้ caller รับรู้
-    const res = await gasFetch('addTicket', { data: ticket });
+    const res = await gasFetchWrite('addTicket', { data: ticket });
     console.log('[dbAddTicket] GAS response:', JSON.stringify(res).slice(0, 200));
     return res;
 }
@@ -4240,7 +4270,7 @@ async function dbUpdateTicket(ticketId, ticketData) {
     userTickets = _filterForCurrentUser(adminTickets);
     localStorage.setItem(TICKETS_KEY, JSON.stringify(adminTickets)); // update cache
     try {
-        await gasFetch('updateTicket', { id: ticketId, data: ticketData });
+        await gasFetchWrite('updateTicket', { id: ticketId, data: ticketData });
     } catch(e) {
         console.warn('[GAS] dbUpdateTicket failed (cache saved)', e.message);
     }
@@ -4264,7 +4294,7 @@ async function dbGetStaff(fallback) {
 async function dbSaveStaff(data) {
     localStorage.setItem(STAFF_KEY, JSON.stringify(data));
     try {
-        await gasFetch('saveStaff', { data });
+        await gasFetchWrite('saveStaff', { data });
     } catch(e) {
         console.warn('[GAS] dbSaveStaff failed (localStorage only)', e.message);
     }
@@ -4291,7 +4321,7 @@ async function dbSavePassword(username, newPassword) {
     window._passwords[username] = newPassword;
     localStorage.setItem('it_passwords', JSON.stringify(window._passwords));
     try {
-        await gasFetch('savePassword', { username, password: newPassword });
+        await gasFetchWrite('savePassword', { username, password: newPassword });
     } catch(e) {
         console.warn('[GAS] dbSavePassword failed (localStorage only)', e.message);
     }
