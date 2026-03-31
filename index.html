@@ -11480,7 +11480,36 @@ function docSaveGasUrlFromInput() {
     showToast('✅ บันทึก Google Sheet URL เรียบร้อย', 'success');
 }
 
-// ── ส่งข้อมูลทั้งหมดไปยัง Google Sheet อัตโนมัติ ─────────────────────────────
+// ── Doc GAS fetch helper (GET pattern เดียวกับระบบ ticket หลัก) ──────────────
+async function docGasFetch(action, payload) {
+    const gasUrl = docGetGasUrl();
+    if (!gasUrl) throw new Error('NO_DOC_GAS_URL');
+    payload = payload || {};
+
+    const params = new URLSearchParams({ action });
+    Object.entries(payload).forEach(([k, v]) => {
+        params.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    });
+    const fullUrl = gasUrl + '?' + params.toString();
+
+    // URL ไม่เกิน limit → ใช้ GET (readable response)
+    if (fullUrl.length <= 7500) {
+        const r = await fetch(fullUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        if (!r.ok) throw new Error('HTTP_' + r.status);
+        const text = await r.text();
+        try { return JSON.parse(text); } catch(e) { throw new Error('NON_JSON'); }
+    }
+
+    // URL ยาวเกิน → fallback no-cors POST (ส่งเป็น form-urlencoded ไม่มี preflight)
+    const body = new URLSearchParams({ action });
+    Object.entries(payload).forEach(([k, v]) => {
+        body.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    });
+    await fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: body.toString() });
+    return { ok: true, nocors: true };
+}
+
+// ── ส่ง/ดึงข้อมูลกับ Google Sheet (GAS เป็น source of truth) ──────────────────
 let _docSyncTimer = null;
 async function docSyncToSheet(docs, silent) {
     const gasUrl = docGetGasUrl();
@@ -11490,24 +11519,7 @@ async function docSyncToSheet(docs, silent) {
         const syncBadge = document.getElementById('doc-sync-status');
         try {
             if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังซิงค์...</span>';
-            const payload = {
-                action: 'sync',
-                docs: (docs || []).map(d => ({
-                    number:    d.number   || '',
-                    subject:   d.subject  || '',
-                    category:  d.category || '',
-                    sig1Name:  d.sig1Name || '',
-                    status:    d.status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง',
-                    updatedAt: d.updatedAt
-                        ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'})
-                        : ''
-                }))
-            };
-            const resp = await fetch(gasUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify(payload)
-            });
+            await docGasFetch('syncDocs', { docs: docs || [] });
             if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ ซิงค์แล้ว</span>';
             if (!silent) showToast('☁️ ซิงค์ข้อมูลไปยัง Google Sheet เรียบร้อย', 'success');
             setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
@@ -11540,10 +11552,24 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── Shared storage helpers (ใช้ localStorage ร่วมกัน ทุก account มองเห็นข้อมูลเดียวกัน) ──
-let _docCache = null; // cache ใน memory เพื่อการทำงาน sync
+// ── Storage helpers — GAS คือ source of truth, localStorage เป็น offline cache ──
+let _docCache = null;
 
 async function docGetAllAsync() {
+    const gasUrl = docGetGasUrl();
+    if (gasUrl) {
+        try {
+            const res = await docGasFetch('getDocs');
+            if (res && Array.isArray(res.docs)) {
+                _docCache = res.docs;
+                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache)); // อัปเดต cache
+                return _docCache;
+            }
+        } catch(e) {
+            console.warn('[docGetAllAsync] GAS error — using localStorage cache:', e.message);
+        }
+    }
+    // Fallback: ใช้ localStorage
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11556,8 +11582,8 @@ async function docGetAllAsync() {
 async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
-        localStorage.setItem(DOC_KEY, JSON.stringify(docs));
-        docSyncToSheet(docs, true); // auto-sync ไป Google Sheet
+        localStorage.setItem(DOC_KEY, JSON.stringify(docs)); // บันทึก local ก่อน (instant)
+        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS (ทุก account เห็นเหมือนกัน)
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
