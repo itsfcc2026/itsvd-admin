@@ -11419,13 +11419,13 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── Shared storage helpers (ใช้ window.storage เพื่อให้ทุก account มองเห็นข้อมูลเดียวกัน) ──
+// ── Shared storage helpers (ใช้ localStorage ร่วมกัน ทุก account มองเห็นข้อมูลเดียวกัน) ──
 let _docCache = null; // cache ใน memory เพื่อการทำงาน sync
 
 async function docGetAllAsync() {
     try {
-        const result = await window.storage.get(DOC_KEY, true); // shared = true
-        _docCache = result ? JSON.parse(result.value) : [];
+        const raw = localStorage.getItem(DOC_KEY);
+        _docCache = raw ? JSON.parse(raw) : [];
     } catch (e) {
         _docCache = [];
     }
@@ -11435,7 +11435,7 @@ async function docGetAllAsync() {
 async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
-        await window.storage.set(DOC_KEY, JSON.stringify(docs), true); // shared = true
+        localStorage.setItem(DOC_KEY, JSON.stringify(docs));
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
@@ -11695,6 +11695,7 @@ function docRenderList() {
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name || '-'}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
