@@ -7317,6 +7317,34 @@ function doGet(e) {
       return jsonOut({ ok: true });
     }
 
+    // ── getDocs ─────────────────────────────────────────────────
+    if (action === 'getDocs') {
+      var rawDocs = props.getProperty('IT_DOC_CLARIFY');
+      return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
+    }
+
+    // ── syncDocs ────────────────────────────────────────────────
+    if (action === 'syncDocs') {
+      var docs = parseParam(e.parameter.docs, []);
+      props.setProperty('IT_DOC_CLARIFY', JSON.stringify(docs));
+      // อัปเดต display sheet "เอกสารชี้แจง"
+      try {
+        var ss2 = SpreadsheetApp.getActiveSpreadsheet();
+        var ds = ss2.getSheetByName('เอกสารชี้แจง');
+        if (!ds) ds = ss2.insertSheet('เอกสารชี้แจง');
+        ds.clearContents();
+        ds.appendRow(['เลขที่เอกสาร','เรื่อง','ประเภท','ผู้รับเรื่อง','สถานะ','วันที่อัปเดต']);
+        docs.forEach(function(d) {
+          ds.appendRow([
+            d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
+            (d.status==='final'||d.status==='เสร็จสิ้น') ? 'เสร็จสิ้น' : 'แบบร่าง',
+            d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH') : ''
+          ]);
+        });
+      } catch(sheetErr) { /* ไม่กระทบ property */ }
+      return jsonOut({ status: 'ok' });
+    }
+
     // ── migrateUsers (รันครั้งเดียวผ่าน URL) ────────────────────
     if (action === 'migrateUsers') {
       var adminKey  = (e.parameter.adminKey || '');
@@ -11453,11 +11481,14 @@ function docSaveGasUrl(url) {
 function docUpdateGasBadge() {
     const badge = document.getElementById('doc-gas-badge');
     if (!badge) return;
-    const url = docGetGasUrl();
-    if (url) {
-        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#15803d;display:inline-block;"></span>เชื่อมต่อแล้ว</span>';
+    const mainOk = !!getGasDbUrl();
+    const docOk  = !!docGetGasUrl();
+    if (mainOk) {
+        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#15803d;display:inline-block;"></span>เชื่อมต่อ GAS หลักแล้ว</span>';
+    } else if (docOk) {
+        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#15803d;display:inline-block;"></span>เชื่อมต่อ (custom)</span>';
     } else {
-        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#fef9ec;color:#b45309;border:1px solid #fcd34d;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#d97706;display:inline-block;"></span>ยังไม่ได้ตั้งค่า</span>';
+        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#fef9ec;color:#b45309;border:1px solid #fcd34d;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#d97706;display:inline-block;"></span>ยังไม่เชื่อมต่อ GAS</span>';
     }
 }
 
@@ -11509,19 +11540,32 @@ async function docGasFetch(action, payload) {
     return { ok: true, nocors: true };
 }
 
-// ── ส่ง/ดึงข้อมูลกับ Google Sheet (GAS เป็น source of truth) ──────────────────
+// ── ส่ง/ดึงข้อมูลกับ Google Sheet (main GAS = source of truth ร่วมกัน) ────────
 let _docSyncTimer = null;
 async function docSyncToSheet(docs, silent) {
-    const gasUrl = docGetGasUrl();
-    if (!gasUrl) return;
     clearTimeout(_docSyncTimer);
     _docSyncTimer = setTimeout(async () => {
         const syncBadge = document.getElementById('doc-sync-status');
+        let synced = false;
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังซิงค์...</span>';
         try {
-            if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังซิงค์...</span>';
-            await docGasFetch('syncDocs', { docs: docs || [] });
-            if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ ซิงค์แล้ว</span>';
-            if (!silent) showToast('☁️ ซิงค์ข้อมูลไปยัง Google Sheet เรียบร้อย', 'success');
+            // ── 1. sync ไป main GAS (ทุก account ใช้ร่วมกัน) ──────────────────
+            const mainUrl = getGasDbUrl();
+            if (mainUrl) {
+                await gasFetchWrite('syncDocs', { docs: docs || [] });
+                synced = true;
+            }
+            // ── 2. sync ไป custom doc GAS ด้วย (ถ้าตั้งค่าไว้) ────────────────
+            if (docGetGasUrl()) {
+                await docGasFetch('syncDocs', { docs: docs || [] });
+                synced = true;
+            }
+            if (synced) {
+                if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ ซิงค์แล้ว</span>';
+                if (!silent) showToast('☁️ ซิงค์ข้อมูลไปยัง Google Sheet เรียบร้อย', 'success');
+            } else {
+                if (syncBadge) syncBadge.innerHTML = '';
+            }
             setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
         } catch(e) {
             if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#dc2626;font-weight:600;">⚠️ ซิงค์ไม่สำเร็จ</span>';
@@ -11532,13 +11576,13 @@ async function docSyncToSheet(docs, silent) {
 }
 
 function docManualSync() {
-    const docs = docGetAll();
-    if (!docGetGasUrl()) {
-        showToast('⚠️ กรุณาตั้งค่า Google Sheet URL ก่อน', 'error');
-        document.getElementById('doc-gas-panel').style.display = 'block';
+    const mainGasOk = !!getGasDbUrl();
+    const docGasOk  = !!docGetGasUrl();
+    if (!mainGasOk && !docGasOk) {
+        showToast('⚠️ ยังไม่ได้เชื่อมต่อ Google Sheet — กรุณาตั้งค่า GAS URL ในหน้า "ส่งออก Google Sheet" ก่อน', 'error');
         return;
     }
-    docSyncToSheet(docs, false);
+    docSyncToSheet(docGetAll(), false);
 }
 
 function docSyncSubject() {
@@ -11552,24 +11596,46 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── Storage helpers — GAS คือ source of truth, localStorage เป็น offline cache ──
+// ── Storage helpers — main GAS คือ source of truth, localStorage เป็น offline cache ──
 let _docCache = null;
+let _docGasHasData = false; // flag ว่า GAS มีข้อมูลจริง (ไม่ใช่แค่ empty)
 
 async function docGetAllAsync() {
-    const gasUrl = docGetGasUrl();
-    if (gasUrl) {
+    _docGasHasData = false;
+
+    // 1. ลอง main GAS ก่อน (ทุก account ทุกเครื่องเห็นร่วมกัน)
+    if (getGasDbUrl()) {
+        try {
+            const res = await gasFetch('getDocs');
+            if (res && Array.isArray(res.docs) && res.docs.length > 0) {
+                // ✅ GAS มีข้อมูลจริง → ใช้เป็น source of truth
+                _docCache = res.docs;
+                _docGasHasData = true;
+                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
+                return _docCache;
+            }
+            // GAS คืน [] → อาจเป็น GAS ยังไม่มีข้อมูล ไม่ใช่ว่าลบหมด → fall through
+        } catch(e) {
+            console.warn('[docGetAllAsync] main GAS error:', e.message);
+        }
+    }
+
+    // 2. ลอง custom doc GAS (ถ้ามี)
+    if (docGetGasUrl()) {
         try {
             const res = await docGasFetch('getDocs');
-            if (res && Array.isArray(res.docs)) {
+            if (res && Array.isArray(res.docs) && res.docs.length > 0) {
                 _docCache = res.docs;
-                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache)); // อัปเดต cache
+                _docGasHasData = true;
+                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
                 return _docCache;
             }
         } catch(e) {
-            console.warn('[docGetAllAsync] GAS error — using localStorage cache:', e.message);
+            console.warn('[docGetAllAsync] doc GAS error:', e.message);
         }
     }
-    // Fallback: ใช้ localStorage
+
+    // 3. Fallback: localStorage cache (ข้อมูลที่ยังไม่ได้ sync ขึ้น GAS)
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11582,28 +11648,47 @@ async function docGetAllAsync() {
 async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
-        localStorage.setItem(DOC_KEY, JSON.stringify(docs)); // บันทึก local ก่อน (instant)
-        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS (ทุก account เห็นเหมือนกัน)
+        localStorage.setItem(DOC_KEY, JSON.stringify(docs));
+        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
 }
 
-// ── sync wrappers ที่ใช้ cache (เพื่อให้ code เดิมทำงานได้) ──
+// ── sync wrappers ที่ใช้ cache ──
 function docGetAll() { return _docCache || []; }
 function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
 
-// ── โหลดข้อมูลจาก shared storage เมื่อเปิดหน้า doc-clarify ──
+// ── โหลดข้อมูลจาก GAS / localStorage และ auto-migrate ──────────────────────
 async function docInitSharedStorage() {
+    // snapshot localStorage ก่อน (ป้องกันถูก overwrite)
+    let localSnapshot = [];
+    try { localSnapshot = JSON.parse(localStorage.getItem(DOC_KEY) || '[]'); } catch(e) {}
+
+    const syncBadge = document.getElementById('doc-sync-status');
+    if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังโหลด...</span>';
+
     await docGetAllAsync();
+
+    // ── Auto-migrate: ถ้า GAS ไม่มีข้อมูล แต่ localStorage มี → push ขึ้น GAS ──
+    const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
+    if (!_docGasHasData && localSnapshot.length > 0 && hasGasUrl) {
+        _docCache = localSnapshot;
+        localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ข้อมูลขึ้น GAS...</span>';
+        docSyncToSheet(localSnapshot, true);
+        showToast('📤 กำลัง migrate ข้อมูลเดิมขึ้น Google Sheet ให้ทุก account เห็นร่วมกัน', 'success');
+    }
+
+    if (syncBadge) setTimeout(() => { if(syncBadge) syncBadge.innerHTML = ''; }, 3000);
+
     docRenderList();
     docUpdateGasBadge();
-    const savedUrl = docGetGasUrl();
     const inp = document.getElementById('doc-gas-url-input');
-    if (inp) inp.value = savedUrl;
-    // เปิด panel อัตโนมัติถ้ายังไม่ได้ตั้งค่า URL
+    if (inp) inp.value = docGetGasUrl();
+    // เปิด panel ก็ต่อเมื่อไม่มี GAS ทั้ง main และ custom
     const panel = document.getElementById('doc-gas-panel');
-    if (panel && !savedUrl) panel.style.display = 'block';
+    if (panel && !hasGasUrl) panel.style.display = 'block';
 }
 
 let _docEditId = null;
