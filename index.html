@@ -3284,6 +3284,38 @@
 
             <!-- LIST VIEW -->
             <div id="doc-view-list">
+
+                <!-- Google Sheet Sync Bar -->
+                <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #bae6fd;border-radius:14px;padding:10px 16px;margin-bottom:0.9rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.04);">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    <span style="font-size:.82rem;font-weight:700;color:#0c4a6e;">Google Sheet Sync</span>
+                    <div id="doc-gas-badge"></div>
+                    <div id="doc-sync-status" style="margin-left:2px;"></div>
+                    <div style="margin-left:auto;display:flex;gap:7px;align-items:center;">
+                        <button onclick="docManualSync()" style="display:inline-flex;align-items:center;gap:5px;background:#0284c7;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;transition:.15s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Sync ตอนนี้
+                        </button>
+                        <button onclick="docToggleGasPanel()" style="display:inline-flex;align-items:center;gap:5px;background:white;border:1.5px solid #bae6fd;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#0284c7;transition:.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='white'">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                            ตั้งค่า URL
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Google Sheet URL Panel (togglable) -->
+                <div id="doc-gas-panel" style="display:none;background:white;border:2px solid #0284c7;border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:0.9rem;box-shadow:0 4px 16px rgba(2,132,199,.15);">
+                    <p style="font-size:.85rem;font-weight:800;color:#0c4a6e;margin-bottom:4px;">🔗 วาง Google Apps Script URL ที่นี่</p>
+                    <p style="font-size:.76rem;color:#64748b;margin-bottom:12px;">นำ URL ที่ได้จากการ Deploy Google Apps Script มาวางในช่องด้านล่าง แล้วกด <b>บันทึก</b></p>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="text" id="doc-gas-url-input" placeholder="https://script.google.com/macros/s/..."
+                            autofocus
+                            style="flex:1;min-width:260px;padding:10px 14px;border:2px solid #0284c7;border-radius:10px;font-family:'Sarabun',sans-serif;font-size:.85rem;outline:none;background:#f0f9ff;color:#0c4a6e;" />
+                        <button onclick="docSaveGasUrlFromInput()" style="background:#0284c7;border:none;border-radius:10px;padding:10px 20px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;white-space:nowrap;">✅ บันทึก</button>
+                        <button onclick="document.getElementById('doc-gas-panel').style.display='none'" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#64748b;">ยกเลิก</button>
+                    </div>
+                </div>
+
                 <!-- Search + Filter -->
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                     <div style="position:relative;flex:1;min-width:200px;">
@@ -11405,8 +11437,97 @@ function tpExportPDF() {
 
 // ===================== DOCUMENT CLARIFY =====================
 const DOC_KEY = 'it_clarify_docs';
+const DOC_GAS_KEY = 'it_clarify_docs_gas_url'; // แยกอิสระจาก GAS หลัก
 
 const DOC_SUBJECT_PREFIX = 'เอกสารชี้แจงในทางเทคนิคเพื่อพิจารณาขอ';
+
+// ── Google Sheet GAS helpers (แยกอิสระ) ──────────────────────────────────────
+function docGetGasUrl() { return localStorage.getItem(DOC_GAS_KEY) || ''; }
+function docSaveGasUrl(url) {
+    localStorage.setItem(DOC_GAS_KEY, (url || '').trim());
+    const el = document.getElementById('doc-gas-url-input');
+    if (el) el.value = (url || '').trim();
+    docUpdateGasBadge();
+}
+
+function docUpdateGasBadge() {
+    const badge = document.getElementById('doc-gas-badge');
+    if (!badge) return;
+    const url = docGetGasUrl();
+    if (url) {
+        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#15803d;display:inline-block;"></span>เชื่อมต่อแล้ว</span>';
+    } else {
+        badge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;background:#fef9ec;color:#b45309;border:1px solid #fcd34d;border-radius:20px;padding:3px 10px;"><span style="width:6px;height:6px;border-radius:50%;background:#d97706;display:inline-block;"></span>ยังไม่ได้ตั้งค่า</span>';
+    }
+}
+
+function docToggleGasPanel() {
+    const panel = document.getElementById('doc-gas-panel');
+    if (!panel) return;
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        const inp = document.getElementById('doc-gas-url-input');
+        if (inp) inp.value = docGetGasUrl();
+    }
+}
+
+function docSaveGasUrlFromInput() {
+    const inp = document.getElementById('doc-gas-url-input');
+    if (!inp) return;
+    docSaveGasUrl(inp.value.trim());
+    document.getElementById('doc-gas-panel').style.display = 'none';
+    showToast('✅ บันทึก Google Sheet URL เรียบร้อย', 'success');
+}
+
+// ── ส่งข้อมูลทั้งหมดไปยัง Google Sheet อัตโนมัติ ─────────────────────────────
+let _docSyncTimer = null;
+async function docSyncToSheet(docs, silent) {
+    const gasUrl = docGetGasUrl();
+    if (!gasUrl) return;
+    clearTimeout(_docSyncTimer);
+    _docSyncTimer = setTimeout(async () => {
+        const syncBadge = document.getElementById('doc-sync-status');
+        try {
+            if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังซิงค์...</span>';
+            const payload = {
+                action: 'sync',
+                docs: (docs || []).map(d => ({
+                    number:    d.number   || '',
+                    subject:   d.subject  || '',
+                    category:  d.category || '',
+                    sig1Name:  d.sig1Name || '',
+                    status:    d.status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง',
+                    updatedAt: d.updatedAt
+                        ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'})
+                        : ''
+                }))
+            };
+            const resp = await fetch(gasUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify(payload)
+            });
+            if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ ซิงค์แล้ว</span>';
+            if (!silent) showToast('☁️ ซิงค์ข้อมูลไปยัง Google Sheet เรียบร้อย', 'success');
+            setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
+        } catch(e) {
+            if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#dc2626;font-weight:600;">⚠️ ซิงค์ไม่สำเร็จ</span>';
+            console.warn('docSyncToSheet error:', e);
+            setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 5000);
+        }
+    }, 800);
+}
+
+function docManualSync() {
+    const docs = docGetAll();
+    if (!docGetGasUrl()) {
+        showToast('⚠️ กรุณาตั้งค่า Google Sheet URL ก่อน', 'error');
+        document.getElementById('doc-gas-panel').style.display = 'block';
+        return;
+    }
+    docSyncToSheet(docs, false);
+}
 
 function docSyncSubject() {
     const suffix = (document.getElementById('doc-subject-suffix')?.value || '').trim();
@@ -11436,6 +11557,7 @@ async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
         localStorage.setItem(DOC_KEY, JSON.stringify(docs));
+        docSyncToSheet(docs, true); // auto-sync ไป Google Sheet
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
@@ -11449,6 +11571,13 @@ function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
 async function docInitSharedStorage() {
     await docGetAllAsync();
     docRenderList();
+    docUpdateGasBadge();
+    const savedUrl = docGetGasUrl();
+    const inp = document.getElementById('doc-gas-url-input');
+    if (inp) inp.value = savedUrl;
+    // เปิด panel อัตโนมัติถ้ายังไม่ได้ตั้งค่า URL
+    const panel = document.getElementById('doc-gas-panel');
+    if (panel && !savedUrl) panel.style.display = 'block';
 }
 
 let _docEditId = null;
