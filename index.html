@@ -11575,14 +11575,28 @@ async function docSyncToSheet(docs, silent) {
     }, 800);
 }
 
-function docManualSync() {
+async function docManualSync() {
     const mainGasOk = !!getGasDbUrl();
     const docGasOk  = !!docGetGasUrl();
-    if (!mainGasOk && !docGasOk) {
-        showToast('⚠️ ยังไม่ได้เชื่อมต่อ Google Sheet — กรุณาตั้งค่า GAS URL ในหน้า "ส่งออก Google Sheet" ก่อน', 'error');
-        return;
+    const syncBadge = document.getElementById('doc-sync-status');
+    if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลัง Sync...</span>';
+
+    // โหลดข้อมูลล่าสุดจากทุกแหล่งก่อน (GAS → shared storage → localStorage)
+    await docGetAllAsync();
+    const currentDocs = docGetAll();
+
+    // push ขึ้น shared storage เสมอ (ทำให้ทุก account เห็นร่วมกัน)
+    await docSharedStorageSet(currentDocs);
+
+    if (mainGasOk || docGasOk) {
+        docSyncToSheet(currentDocs, false);
+    } else {
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ Sync แล้ว</span>';
+        showToast('☁️ Sync ข้อมูลขึ้น Shared Storage เรียบร้อย — ทุก account จะเห็นเอกสารร่วมกัน', 'success');
+        setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
     }
-    docSyncToSheet(docGetAll(), false);
+
+    docRenderList();
 }
 
 function docSyncSubject() {
@@ -11710,23 +11724,37 @@ async function docInitSharedStorage() {
 
     const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
 
-    // ── Auto-migrate: ถ้า GAS ไม่มีข้อมูล แต่ localStorage มี → push ขึ้น GAS + shared storage ──
+    // ── Auto-migrate: GAS ไม่มีข้อมูล แต่ localStorage มี → push ขึ้น GAS + shared storage ──
     if (!_docGasHasData && localSnapshot.length > 0 && hasGasUrl) {
         _docCache = localSnapshot;
         localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
-        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ข้อมูลขึ้น GAS...</span>';
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ขึ้น GAS...</span>';
         docSyncToSheet(localSnapshot, true);
         await docSharedStorageSet(localSnapshot);
-        showToast('📤 กำลัง migrate ข้อมูลเดิมขึ้น Google Sheet ให้ทุก account เห็นร่วมกัน', 'success');
+        showToast('📤 migrate ข้อมูลเดิมขึ้น Google Sheet + Shared Storage เรียบร้อย', 'success');
     }
 
-    // ── Auto-migrate: ถ้าไม่มี GAS เลย แต่ localStorage มีข้อมูล → push ขึ้น shared storage ──
+    // ── Auto-migrate: ไม่มี GAS เลย แต่ localStorage มีข้อมูล และ shared storage ยังว่าง → push ──
     if (!hasGasUrl && localSnapshot.length > 0 && (_docCache === null || _docCache.length === 0)) {
         _docCache = localSnapshot;
         localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
-        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ข้อมูลขึ้น Shared Storage...</span>';
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ขึ้น Shared Storage...</span>';
         await docSharedStorageSet(localSnapshot);
-        showToast('📤 migrate ข้อมูลเดิมขึ้น Shared Storage เรียบร้อย — ทุก account จะเห็นเอกสารร่วมกัน', 'success');
+        showToast('📤 migrate ข้อมูลเดิมขึ้น Shared Storage เรียบร้อย — ทุก account จะเห็นร่วมกัน', 'success');
+    }
+
+    // ── Auto-migrate: มี GAS + localStorage มีข้อมูล แต่ shared storage ยังว่าง → push ขึ้น shared ──
+    // (กรณี adminit บันทึกข้อมูลก่อนที่จะมีระบบ shared storage)
+    if (localSnapshot.length > 0) {
+        try {
+            const existingShared = await docSharedStorageGet();
+            if (!existingShared || existingShared.length === 0) {
+                // shared storage ยังไม่มีข้อมูล → push localSnapshot ขึ้น
+                const mergedDocs = _docCache && _docCache.length > 0 ? _docCache : localSnapshot;
+                await docSharedStorageSet(mergedDocs);
+                _docCache = mergedDocs;
+            }
+        } catch(e) { /* ไม่กระทบ */ }
     }
 
     if (syncBadge) setTimeout(() => { if(syncBadge) syncBadge.innerHTML = ''; }, 3000);
