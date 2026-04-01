@@ -6836,53 +6836,57 @@ function gsInitSection() {
 const APPS_SCRIPT_CODE = `// ══════════════════════════════════════════════════════════════
 // IT Service Desk — Google Apps Script (GAS) Backend
 // ══════════════════════════════════════════════════════════════
-// อัปเดตล่าสุด: ย้าย Users ไปเก็บใน Google Sheet แทน ScriptProperties
-//   • Sheet "Tickets" → เก็บข้อมูล ticket ทุกใบ (อ่าน/เขียน realtime)
-//   • Sheet "Users"   → เก็บข้อมูล user accounts (อ่าน/เขียน realtime)
-//   • ScriptProperties → เก็บ Staff, Passwords (ข้อมูลเล็กน้อย)
+// เวอร์ชันล่าสุด: เก็บ Docs ใน Sheet โดยตรง (ทุก account เห็นร่วมกัน)
+//   • Sheet "Tickets"        → ticket ทุกใบ
+//   • Sheet "Users"          → user accounts
+//   • Sheet "เอกสารชี้แจง"  → docs (json_full column = ข้อมูลเต็ม)
+//   • ScriptProperties       → Staff, Passwords (ข้อมูลเล็กน้อย)
 // ══════════════════════════════════════════════════════════════
 
-// ── ชื่อ Sheet และ properties keys ───────────────────────────
 var SHEET_TICKETS  = 'Tickets';
 var SHEET_USERS    = 'Users';
 var PROP_STAFF     = 'IT_STAFF';
 var PROP_PASSWORDS = 'IT_PASSWORDS';
 
-// ── Users column definition ───────────────────────────────────
 var USER_COLS = [
   'email','fullname','password','createdAt','lastLogin',
   'active','token','resetToken','resetExpiry'
 ];
 
-// ── helper: JSON response ─────────────────────────────────────
 function jsonOut(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── helper: SHA-256 hash ──────────────────────────────────────
 function hashPassword(password) {
   var raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password, Utilities.Charset.UTF_8);
   return raw.map(function(b){ return ('0' + ((b < 0 ? b + 256 : b).toString(16))).slice(-2); }).join('');
 }
 
-// ── helper: generate token ────────────────────────────────────
 function makeToken(email) {
   var rand = Utilities.getUuid();
   return Utilities.base64Encode(email + ':' + rand + ':' + new Date().getTime());
 }
 
-// ── helper: parseParam ────────────────────────────────────────
 function parseParam(val, fallback) {
   if (val === undefined || val === null || val === '') return fallback;
   if (typeof val === 'object') return val;
   try { return JSON.parse(val); } catch(e) { return fallback; }
 }
 
-// ══════════════════════════════════════════════════════════════
-// GOOGLE SHEET — TICKET HELPERS
-// ══════════════════════════════════════════════════════════════
+// ── Doc Sheet helper ──────────────────────────────────────────
+function getDocSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ds = ss.getSheetByName('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
+  if (!ds) {
+    ds = ss.insertSheet('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
+    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
+  }
+  return ds;
+}
+
+// ── TICKETS ───────────────────────────────────────────────────
 var TICKET_COLS = [
   'id','date','resolvedAt','user','email','section','dept',
   'category','desc','priority','status','adminNote','assignee',
@@ -6892,199 +6896,109 @@ var TICKET_COLS = [
 
 function getTicketSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_TICKETS);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_TICKETS);
-    sheet.appendRow(TICKET_COLS);
-    var hdr = sheet.getRange(1, 1, 1, TICKET_COLS.length);
-    hdr.setBackground('#2C4A52');
-    hdr.setFontColor('#ffffff');
-    hdr.setFontWeight('bold');
-    hdr.setFontSize(10);
-    sheet.setFrozenRows(1);
+  var sh = ss.getSheetByName(SHEET_TICKETS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_TICKETS);
+    sh.appendRow(TICKET_COLS);
   }
-  return sheet;
+  return sh;
 }
 
 function sheetGetTickets() {
-  var sheet = getTicketSheet();
-  var lastRow = sheet.getLastRow();
+  var sh = getTicketSheet();
+  var lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, TICKET_COLS.length).getValues();
-  return data
-    .filter(function(row){ return row[0] !== ''; })
-    .map(function(row) {
-      var obj = {};
-      TICKET_COLS.forEach(function(col, i) {
-        var val = row[i];
-        if (val instanceof Date) {
-          obj[col] = val.toISOString();
-        } else if (typeof val === 'string' && val === '') {
-          obj[col] = (col === 'secondarySupport') ? [] : '';
-        } else if (col === 'secondarySupport') {
-          try { obj[col] = JSON.parse(val || '[]'); } catch(e) { obj[col] = []; }
-        } else if (col === 'fcr' || col === 'userConfirmed' || col === 'escalated') {
-          obj[col] = (val === true || val === 'true' || val === 'TRUE');
-        } else if (col === 'rating' || col === 'reopenCount' || col === 'assignCount') {
-          obj[col] = val === '' ? 0 : Number(val) || 0;
-        } else {
-          obj[col] = val;
-        }
-      });
-      return obj;
-    });
-}
-
-function sheetAddTicket(ticket) {
-  var sheet = getTicketSheet();
-  var row = TICKET_COLS.map(function(col) {
-    var val = ticket[col];
-    if (col === 'secondarySupport') return JSON.stringify(val || []);
-    if (val === undefined || val === null) return '';
-    return val;
+  var rows = sh.getRange(2, 1, lastRow - 1, TICKET_COLS.length).getValues();
+  return rows.filter(function(r){ return r[0] && r[0] !== ''; }).map(function(r){
+    var obj = {};
+    TICKET_COLS.forEach(function(col, i){ obj[col] = r[i] !== '' ? r[i] : undefined; });
+    return obj;
   });
-  sheet.appendRow(row);
-  var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, TICKET_COLS.length)
-    .setBackground((lastRow % 2 === 0) ? '#f0f4ff' : '#ffffff');
-}
-
-function sheetUpdateTicket(id, ticketData) {
-  var sheet = getTicketSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return false;
-  var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = 0; i < idCol.length; i++) {
-    if (idCol[i][0] === id) {
-      var row = TICKET_COLS.map(function(col) {
-        var val = ticketData[col];
-        if (col === 'secondarySupport') return JSON.stringify(val || []);
-        if (val === undefined || val === null) return '';
-        return val;
-      });
-      sheet.getRange(i + 2, 1, 1, TICKET_COLS.length).setValues([row]);
-      return true;
-    }
-  }
-  sheetAddTicket(ticketData);
-  return true;
 }
 
 function sheetSaveAllTickets(tickets) {
-  var sheet = getTicketSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  var sh = getTicketSheet();
+  sh.clearContents();
+  sh.appendRow(TICKET_COLS);
   if (!tickets || tickets.length === 0) return;
-  var rows = tickets.map(function(ticket) {
-    return TICKET_COLS.map(function(col) {
-      var val = ticket[col];
-      if (col === 'secondarySupport') return JSON.stringify(val || []);
-      if (val === undefined || val === null) return '';
-      return val;
-    });
+  var rows = tickets.map(function(t){
+    return TICKET_COLS.map(function(col){ return t[col] !== undefined ? t[col] : ''; });
   });
-  sheet.getRange(2, 1, rows.length, TICKET_COLS.length).setValues(rows);
-  rows.forEach(function(_, i) {
-    sheet.getRange(i + 2, 1, 1, TICKET_COLS.length)
-      .setBackground(i % 2 === 0 ? '#ffffff' : '#f0f4ff');
-  });
+  sh.getRange(2, 1, rows.length, TICKET_COLS.length).setValues(rows);
 }
 
-// ══════════════════════════════════════════════════════════════
-// GOOGLE SHEET — USER HELPERS (แทน ScriptProperties)
-// ══════════════════════════════════════════════════════════════
+function sheetUpdateTicket(id, ticketData) {
+  var sh = getTicketSheet();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return;
+  var ids = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === id) {
+      var row = TICKET_COLS.map(function(col){ return ticketData[col] !== undefined ? ticketData[col] : ''; });
+      sh.getRange(i + 2, 1, 1, TICKET_COLS.length).setValues([row]);
+      return;
+    }
+  }
+  var row = TICKET_COLS.map(function(col){ return ticketData[col] !== undefined ? ticketData[col] : ''; });
+  sh.appendRow(row);
+}
 
-// ── ดึงหรือสร้าง Sheet Users ──────────────────────────────────
+// ── USERS ─────────────────────────────────────────────────────
 function getUserSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_USERS);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_USERS);
-    sheet.appendRow(USER_COLS);
-    var hdr = sheet.getRange(1, 1, 1, USER_COLS.length);
-    hdr.setBackground('#2C4A52');
-    hdr.setFontColor('#ffffff');
-    hdr.setFontWeight('bold');
-    hdr.setFontSize(10);
-    sheet.setFrozenRows(1);
-    sheet.setColumnWidth(1, 200);
-    sheet.setColumnWidth(2, 160);
-    sheet.setColumnWidth(3, 80);
-    sheet.setColumnWidth(4, 160);
-    sheet.setColumnWidth(5, 160);
+  var sh = ss.getSheetByName(SHEET_USERS);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_USERS);
+    sh.appendRow(USER_COLS);
   }
-  return sheet;
+  return sh;
 }
 
-// ── อ่าน users ทั้งหมด → คืนเป็น object { email: userObj } ──
 function sheetGetUsers() {
-  var sheet = getUserSheet();
-  var lastRow = sheet.getLastRow();
+  var sh = getUserSheet();
+  var lastRow = sh.getLastRow();
   if (lastRow < 2) return {};
-  var data = sheet.getRange(2, 1, lastRow - 1, USER_COLS.length).getValues();
+  var rows = sh.getRange(2, 1, lastRow - 1, USER_COLS.length).getValues();
   var users = {};
-  data.forEach(function(row) {
-    if (!row[0]) return; // skip empty rows
+  rows.forEach(function(r){
+    if (!r[0]) return;
     var obj = {};
-    USER_COLS.forEach(function(col, i) {
-      var val = row[i];
-      if (val instanceof Date) {
-        obj[col] = val.getTime() > 0 ? val.toISOString() : '';
-      } else if (col === 'active') {
-        obj[col] = (val === true || val === 'true' || val === 'TRUE' || val === 1);
-      } else if (col === 'resetExpiry') {
-        obj[col] = val ? Number(val) : null;
-      } else {
-        obj[col] = (val === undefined || val === null) ? '' : val;
-      }
-    });
-    users[obj.email] = obj;
+    USER_COLS.forEach(function(col, i){ obj[col] = r[i] !== '' ? r[i] : undefined; });
+    users[r[0]] = obj;
   });
   return users;
 }
 
-// ── หา row index ของ email (คืน -1 ถ้าไม่เจอ) ────────────────
 function findUserRow(email) {
-  var sheet = getUserSheet();
-  var lastRow = sheet.getLastRow();
+  var sh = getUserSheet();
+  var lastRow = sh.getLastRow();
   if (lastRow < 2) return -1;
-  var emails = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var emails = sh.getRange(2, 1, lastRow - 1, 1).getValues();
   for (var i = 0; i < emails.length; i++) {
-    if (emails[i][0] === email) return i + 2; // +2: header + 0-index
+    if (emails[i][0] === email) return i + 2;
   }
   return -1;
 }
 
-// ── เขียน user object ลง row ──────────────────────────────────
 function userToRow(obj) {
-  return USER_COLS.map(function(col) {
+  return USER_COLS.map(function(col){
     var val = obj[col];
     if (val === undefined || val === null) return '';
     return val;
   });
 }
 
-// ── เพิ่ม user ใหม่ ───────────────────────────────────────────
 function sheetAddUser(userObj) {
   var sheet = getUserSheet();
   sheet.appendRow(userToRow(userObj));
-  var lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 1, 1, USER_COLS.length)
-    .setBackground(lastRow % 2 === 0 ? '#f0fdf4' : '#ffffff');
 }
 
-// ── อัปเดต user ที่มีอยู่แล้ว ────────────────────────────────
 function sheetUpdateUser(email, userObj) {
   var rowIdx = findUserRow(email);
-  if (rowIdx === -1) {
-    sheetAddUser(userObj);
-    return;
-  }
-  var sheet = getUserSheet();
-  sheet.getRange(rowIdx, 1, 1, USER_COLS.length).setValues([userToRow(userObj)]);
+  if (rowIdx === -1) { sheetAddUser(userObj); return; }
+  getUserSheet().getRange(rowIdx, 1, 1, USER_COLS.length).setValues([userToRow(userObj)]);
 }
 
-// ── ลบ user ───────────────────────────────────────────────────
 function sheetDeleteUser(email) {
   var rowIdx = findUserRow(email);
   if (rowIdx === -1) return false;
@@ -7092,30 +7006,22 @@ function sheetDeleteUser(email) {
   return true;
 }
 
-// ── migrate: ย้าย users จาก ScriptProperties → Sheet (รันครั้งเดียว) ──
 function migrateUsersToSheet() {
   var props = PropertiesService.getScriptProperties();
-  var raw   = props.getProperty('IT_USERS');
+  var raw = props.getProperty('IT_USERS');
   if (!raw) { Logger.log('No IT_USERS to migrate'); return; }
   var users = JSON.parse(raw);
-  var list  = Object.values(users);
-  if (list.length === 0) { Logger.log('IT_USERS is empty'); return; }
-  // เช็คว่า sheet มีข้อมูลแล้วหรือยัง
+  var list = Object.values(users);
+  if (list.length === 0) return;
   var sheet = getUserSheet();
-  if (sheet.getLastRow() > 1) {
-    Logger.log('Users sheet already has data — skipping migration to avoid duplicates');
-    return;
-  }
-  list.forEach(function(u) { sheetAddUser(u); });
-  Logger.log('Migrated ' + list.length + ' users to Sheet');
-  // เก็บ backup ไว้ใน Props แต่ rename key
+  if (sheet.getLastRow() > 1) { Logger.log('Already has data'); return; }
+  list.forEach(function(u){ sheetAddUser(u); });
   props.setProperty('IT_USERS_BACKUP', raw);
   props.deleteProperty('IT_USERS');
-  Logger.log('IT_USERS backed up as IT_USERS_BACKUP and deleted from Properties');
 }
 
 // ══════════════════════════════════════════════════════════════
-// doGet: รับทุก action
+// doGet
 // ══════════════════════════════════════════════════════════════
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action ? e.parameter.action : '';
@@ -7123,239 +7029,212 @@ function doGet(e) {
 
   try {
 
-    // ── getTickets ──────────────────────────────────────────────
     if (action === 'getTickets') {
       return jsonOut({ status: 'ok', data: sheetGetTickets() });
     }
-
-    // ── saveTickets ─────────────────────────────────────────────
     if (action === 'saveTickets') {
       sheetSaveAllTickets(parseParam(e.parameter.data, []));
       return jsonOut({ status: 'ok' });
     }
-
-    // ── addTicket ───────────────────────────────────────────────
     if (action === 'addTicket') {
       var ticket = parseParam(e.parameter.data, {});
       if (!ticket.id) return jsonOut({ status: 'error', message: 'no ticket id' });
-      var existing = sheetGetTickets();
-      var dup = existing.some(function(t){ return t.id === ticket.id; });
-      if (!dup) sheetAddTicket(ticket);
+      sheetUpdateTicket(ticket.id, ticket);
       return jsonOut({ status: 'ok' });
     }
-
-    // ── updateTicket ────────────────────────────────────────────
     if (action === 'updateTicket') {
       sheetUpdateTicket(e.parameter.id, parseParam(e.parameter.data, {}));
       return jsonOut({ status: 'ok' });
     }
-
-    // ── getStaff ────────────────────────────────────────────────
     if (action === 'getStaff') {
       var raw = props.getProperty(PROP_STAFF);
       return jsonOut({ status: 'ok', data: raw ? JSON.parse(raw) : [] });
     }
-
-    // ── saveStaff ───────────────────────────────────────────────
     if (action === 'saveStaff') {
       props.setProperty(PROP_STAFF, JSON.stringify(parseParam(e.parameter.data, [])));
       return jsonOut({ status: 'ok' });
     }
-
-    // ── getPasswords ────────────────────────────────────────────
     if (action === 'getPasswords') {
       var raw = props.getProperty(PROP_PASSWORDS);
       return jsonOut({ status: 'ok', data: raw ? JSON.parse(raw) : {} });
     }
-
-    // ── savePassword ────────────────────────────────────────────
     if (action === 'savePassword') {
-      var username = e.parameter.username;
-      var password = e.parameter.password;
-      var raw  = props.getProperty(PROP_PASSWORDS);
-      var data = raw ? JSON.parse(raw) : {};
-      data[username] = password;
+      var data = parseParam(props.getProperty(PROP_PASSWORDS), {});
+      data[e.parameter.username] = e.parameter.password;
       props.setProperty(PROP_PASSWORDS, JSON.stringify(data));
       return jsonOut({ status: 'ok' });
     }
 
-    // ── register ─────────────────────────────────────────────────
-    if (action === 'register') {
-      var email    = (e.parameter.email    || '').toLowerCase().trim();
-      var password = (e.parameter.password || '').trim();
-      var fullname = (e.parameter.fullname || '').trim();
-      if (!email || !password) return jsonOut({ ok: false, error: 'กรุณากรอกข้อมูลให้ครบ' });
-      var emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailReg.test(email)) return jsonOut({ ok: false, error: 'รูปแบบ Email ไม่ถูกต้อง' });
-      if (password.length < 8)   return jsonOut({ ok: false, error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
-      var users = sheetGetUsers();
-      if (users[email]) return jsonOut({ ok: false, error: 'Email นี้ถูกใช้งานแล้ว' });
-      sheetAddUser({
-        email:     email,
-        fullname:  fullname,
-        password:  hashPassword(password),
-        createdAt: new Date().toISOString(),
-        lastLogin: '',
-        active:    true,
-        token:     '',
-        resetToken:  '',
-        resetExpiry: ''
-      });
-      return jsonOut({ ok: true });
-    }
-
-    // ── login ─────────────────────────────────────────────────────
-    if (action === 'login') {
-      var email    = (e.parameter.email    || '').toLowerCase().trim();
-      var password = (e.parameter.password || '').trim();
-      if (!email || !password) return jsonOut({ ok: false, error: 'กรุณากรอก Email และรหัสผ่าน' });
-      var users = sheetGetUsers();
-      var user  = users[email];
-      if (!user)                                          return jsonOut({ ok: false, error: 'ไม่พบ Email นี้ในระบบ' });
-      if (!user.active)                                   return jsonOut({ ok: false, error: 'บัญชีนี้ถูกระงับการใช้งาน' });
-      if (user.password !== hashPassword(password))      return jsonOut({ ok: false, error: 'รหัสผ่านไม่ถูกต้อง' });
-      var token = makeToken(email);
-      user.lastLogin = new Date().toISOString();
-      user.token     = token;
-      sheetUpdateUser(email, user);
-      return jsonOut({ ok: true, token: token, user: { email: email, fullname: user.fullname || '' } });
-    }
-
-    // ── requestResetPassword ──────────────────────────────────────
-    if (action === 'requestResetPassword') {
-      var email = (e.parameter.email || '').toLowerCase().trim();
-      if (!email) return jsonOut({ ok: false, error: 'กรุณากรอก Email' });
-      var users = sheetGetUsers();
-      if (!users[email]) return jsonOut({ ok: false, error: 'ไม่พบ Email นี้ในระบบ' });
-      var resetToken = Utilities.getUuid();
-      var expiry     = new Date().getTime() + 60 * 60 * 1000;
-      users[email].resetToken  = resetToken;
-      users[email].resetExpiry = expiry;
-      sheetUpdateUser(email, users[email]);
-      try {
-        var resetUrl = 'https://yoursite.com/?reset=' + resetToken + '&email=' + encodeURIComponent(email);
-        MailApp.sendEmail({
-          to: email,
-          subject: '[IT Service Desk] รีเซ็ตรหัสผ่าน',
-          body: 'คลิกลิงก์นี้เพื่อรีเซ็ตรหัสผ่านของคุณ (ใช้ได้ 1 ชั่วโมง):\n\n' + resetUrl + '\n\nหากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาเพิกเฉยต่ออีเมลนี้'
-        });
-      } catch(mailErr) {}
-      return jsonOut({ ok: true });
-    }
-
-    // ── resetPassword ─────────────────────────────────────────────
-    if (action === 'resetPassword') {
-      var email       = (e.parameter.email       || '').toLowerCase().trim();
-      var resetToken  = (e.parameter.resetToken  || '').trim();
-      var newPassword = (e.parameter.newPassword || '').trim();
-      if (!email || !resetToken || !newPassword) return jsonOut({ ok: false, error: 'ข้อมูลไม่ครบ' });
-      if (newPassword.length < 8) return jsonOut({ ok: false, error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
-      var users = sheetGetUsers();
-      var user  = users[email];
-      if (!user)                                   return jsonOut({ ok: false, error: 'ไม่พบ Email นี้ในระบบ' });
-      if (user.resetToken !== resetToken)          return jsonOut({ ok: false, error: 'Token ไม่ถูกต้อง' });
-      if (new Date().getTime() > Number(user.resetExpiry)) return jsonOut({ ok: false, error: 'Token หมดอายุแล้ว กรุณาขอใหม่' });
-      user.password    = hashPassword(newPassword);
-      user.resetToken  = '';
-      user.resetExpiry = '';
-      sheetUpdateUser(email, user);
-      return jsonOut({ ok: true });
-    }
-
-    // ── getUsers (admin only) ─────────────────────────────────────
+    // ── Users ─────────────────────────────────────────────────
     if (action === 'getUsers') {
+      return jsonOut({ status: 'ok', data: sheetGetUsers() });
+    }
+    if (action === 'registerUser') {
+      var email = (e.parameter.email || '').trim().toLowerCase();
+      var password = e.parameter.password || '';
+      var fullname = e.parameter.fullname || '';
+      var emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !password) return jsonOut({ ok: false, error: '\u0e01\u0e23\u0e38\u0e13\u0e32\u0e01\u0e23\u0e2d\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e2b\u0e49\u0e04\u0e23\u0e1a' });
+      if (!emailReg.test(email)) return jsonOut({ ok: false, error: '\u0e23\u0e39\u0e1b\u0e41\u0e1a\u0e1a Email \u0e44\u0e21\u0e48\u0e16\u0e39\u0e01\u0e15\u0e49\u0e2d\u0e07' });
+      if (password.length < 8) return jsonOut({ ok: false, error: '\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19\u0e15\u0e49\u0e2d\u0e07\u0e21\u0e35\u0e2d\u0e22\u0e48\u0e32\u0e07\u0e19\u0e49\u0e2d\u0e22 8 \u0e15\u0e31\u0e27\u0e2d\u0e31\u0e01\u0e29\u0e23' });
+      var users = sheetGetUsers();
+      if (users[email]) return jsonOut({ ok: false, error: 'Email \u0e19\u0e35\u0e49\u0e16\u0e39\u0e01\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19\u0e41\u0e25\u0e49\u0e27' });
+      var newUser = {
+        email: email, fullname: fullname || email.split('@')[0],
+        password: hashPassword(password), createdAt: new Date().toISOString(),
+        active: true, token: '', resetToken: '', resetExpiry: ''
+      };
+      sheetAddUser(newUser);
+      return jsonOut({ ok: true });
+    }
+    if (action === 'loginUser') {
+      var email = (e.parameter.email || '').trim().toLowerCase();
+      var password = e.parameter.password || '';
+      var users = sheetGetUsers();
+      var user = users[email];
+      if (!user) return jsonOut({ ok: false, error: '\u0e44\u0e21\u0e48\u0e1e\u0e1a\u0e1a\u0e31\u0e0d\u0e0a\u0e35 Email \u0e19\u0e35\u0e49' });
+      if (!user.active) return jsonOut({ ok: false, error: '\u0e1a\u0e31\u0e0d\u0e0a\u0e35\u0e16\u0e39\u0e01\u0e23\u0e30\u0e07\u0e31\u0e1a' });
+      if (hashPassword(password) !== user.password) return jsonOut({ ok: false, error: '\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19\u0e44\u0e21\u0e48\u0e16\u0e39\u0e01\u0e15\u0e49\u0e2d\u0e07' });
+      var token = makeToken(email);
+      user.token = token;
+      user.lastLogin = new Date().toISOString();
+      sheetUpdateUser(email, user);
+      return jsonOut({ ok: true, token: token, user: { email: user.email, fullname: user.fullname } });
+    }
+    if (action === 'updateUserPassword') {
       var adminKey  = (e.parameter.adminKey || '');
       var storedKey = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
       if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
+      var targetEmail = (e.parameter.targetEmail || '').toLowerCase();
+      var newPassword = e.parameter.newPassword || '';
+      if (!targetEmail || !newPassword) return jsonOut({ ok: false, error: '\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e44\u0e21\u0e48\u0e04\u0e23\u0e1a' });
+      if (newPassword.length < 8) return jsonOut({ ok: false, error: '\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19\u0e15\u0e49\u0e2d\u0e07\u0e21\u0e35\u0e2d\u0e22\u0e48\u0e32\u0e07\u0e19\u0e49\u0e2d\u0e22 8 \u0e15\u0e31\u0e27\u0e2d\u0e31\u0e01\u0e29\u0e23' });
       var users = sheetGetUsers();
-      var list  = Object.values(users).map(function(u) {
-        return { email: u.email, fullname: u.fullname || '', createdAt: u.createdAt, lastLogin: u.lastLogin, active: u.active };
-      });
-      return jsonOut({ ok: true, data: list });
-    }
-
-    // ── deleteUser (admin only) ───────────────────────────────────
-    if (action === 'deleteUser') {
-      var adminKey    = (e.parameter.adminKey    || '');
-      var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
-      var storedKey   = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
-      if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
-      if (!targetEmail) return jsonOut({ ok: false, error: 'ระบุ Email ที่ต้องการลบ' });
-      var users = sheetGetUsers();
-      if (!users[targetEmail]) return jsonOut({ ok: false, error: 'ไม่พบ User นี้' });
-      sheetDeleteUser(targetEmail);
-      return jsonOut({ ok: true });
-    }
-
-    // ── toggleUser (admin only) ───────────────────────────────────
-    if (action === 'toggleUser') {
-      var adminKey    = (e.parameter.adminKey    || '');
-      var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
-      var storedKey   = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
-      if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
-      if (!targetEmail) return jsonOut({ ok: false, error: 'ระบุ Email ที่ต้องการ' });
-      var users = sheetGetUsers();
-      if (!users[targetEmail]) return jsonOut({ ok: false, error: 'ไม่พบ User นี้' });
-      users[targetEmail].active = !users[targetEmail].active;
-      sheetUpdateUser(targetEmail, users[targetEmail]);
-      return jsonOut({ ok: true, active: users[targetEmail].active });
-    }
-
-    // ── resetUserPassword (admin only) ────────────────────────────
-    if (action === 'resetUserPassword') {
-      var adminKey    = (e.parameter.adminKey    || '');
-      var targetEmail = (e.parameter.targetEmail || '').toLowerCase().trim();
-      var newPassword = (e.parameter.newPassword || '').trim();
-      var storedKey   = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
-      if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
-      if (!targetEmail || !newPassword) return jsonOut({ ok: false, error: 'ข้อมูลไม่ครบ' });
-      if (newPassword.length < 8) return jsonOut({ ok: false, error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
-      var users = sheetGetUsers();
-      if (!users[targetEmail]) return jsonOut({ ok: false, error: 'ไม่พบ User นี้' });
+      if (!users[targetEmail]) return jsonOut({ ok: false, error: '\u0e44\u0e21\u0e48\u0e1e\u0e1a User \u0e19\u0e35\u0e49' });
       users[targetEmail].password = hashPassword(newPassword);
       sheetUpdateUser(targetEmail, users[targetEmail]);
       return jsonOut({ ok: true });
     }
 
-    // ── getDocs ─────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    // DOCS — เก็บใน Sheet "เอกสารชี้แจง" (json_full column)
+    // ทุก account เห็นร่วมกันได้ทันที ไม่ผ่าน ScriptProperties
+    // ══════════════════════════════════════════════════════════
+
+    // getDocs — อ่านจาก Sheet โดยตรง
     if (action === 'getDocs') {
-      var rawDocs = props.getProperty('IT_DOC_CLARIFY');
-      return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
+      try {
+        var ds = getDocSheet();
+        var lastRow = ds.getLastRow();
+        if (lastRow < 2) return jsonOut({ status: 'ok', docs: [] });
+        var rows = ds.getRange(2, 1, lastRow - 1, 10).getValues();
+        var docs = rows
+          .filter(function(r){ return r[0] && r[0] !== ''; })
+          .map(function(r){
+            try {
+              var parsed = JSON.parse(r[9] || 'null');
+              if (parsed) return parsed;
+            } catch(e2){}
+            // fallback: สร้าง object จากคอลัมน์พื้นฐาน
+            return {
+              id: r[0], number: r[1], subject: r[2], category: r[3],
+              sig1Name: r[4], status: r[5] === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
+              updatedAt: r[6], createdAt: r[7], body: r[8]
+            };
+          });
+        return jsonOut({ status: 'ok', docs: docs });
+      } catch(e3) {
+        return jsonOut({ status: 'error', message: e3.toString() });
+      }
     }
 
-    // ── syncDocs ────────────────────────────────────────────────
-    if (action === 'syncDocs') {
-      var docs = parseParam(e.parameter.docs, []);
-      props.setProperty('IT_DOC_CLARIFY', JSON.stringify(docs));
-      // อัปเดต display sheet "เอกสารชี้แจง"
+    // addDoc — เพิ่ม/อัปเดต doc เดียว (ส่ง JSON ผ่าน POST body)
+    if (action === 'addDoc') {
       try {
-        var ss2 = SpreadsheetApp.getActiveSpreadsheet();
-        var ds = ss2.getSheetByName('เอกสารชี้แจง');
-        if (!ds) ds = ss2.insertSheet('เอกสารชี้แจง');
+        var docJson = e.parameter.docJson || '';
+        var docObj  = parseParam(docJson, null);
+        if (!docObj || !docObj.id) return jsonOut({ status: 'error', message: 'no doc id' });
+        var ds = getDocSheet();
+        var lastRow = ds.getLastRow();
+        var foundRow = -1;
+        if (lastRow > 1) {
+          var ids = ds.getRange(2, 1, lastRow - 1, 1).getValues();
+          for (var i = 0; i < ids.length; i++) {
+            if (ids[i][0] === docObj.id) { foundRow = i + 2; break; }
+          }
+        }
+        var rowData = [
+          docObj.id || '',
+          docObj.number || '',
+          docObj.subject || '',
+          docObj.category || '',
+          docObj.sig1Name || '',
+          (docObj.status === 'final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
+          docObj.updatedAt || new Date().toISOString(),
+          docObj.createdAt || new Date().toISOString(),
+          (docObj.body || '').substring(0, 500),
+          JSON.stringify(docObj)
+        ];
+        if (foundRow > 0) {
+          ds.getRange(foundRow, 1, 1, 10).setValues([rowData]);
+        } else {
+          ds.appendRow(rowData);
+        }
+        return jsonOut({ status: 'ok' });
+      } catch(e4) {
+        return jsonOut({ status: 'error', message: e4.toString() });
+      }
+    }
+
+    // deleteDoc — ลบ doc จาก Sheet
+    if (action === 'deleteDoc') {
+      try {
+        var delId = e.parameter.docId || '';
+        if (!delId) return jsonOut({ status: 'error', message: 'no doc id' });
+        var ds = getDocSheet();
+        var lastRow = ds.getLastRow();
+        if (lastRow < 2) return jsonOut({ status: 'ok' });
+        var ids = ds.getRange(2, 1, lastRow - 1, 1).getValues();
+        for (var i = ids.length - 1; i >= 0; i--) {
+          if (ids[i][0] === delId) { ds.deleteRow(i + 2); break; }
+        }
+        return jsonOut({ status: 'ok' });
+      } catch(e5) {
+        return jsonOut({ status: 'error', message: e5.toString() });
+      }
+    }
+
+    // syncDocs — batch sync (fallback เผื่อไว้)
+    if (action === 'syncDocs') {
+      try {
+        var docs = parseParam(e.parameter.docs, []);
+        var ds = getDocSheet();
         ds.clearContents();
-        ds.appendRow(['เลขที่เอกสาร','เรื่อง','ประเภท','ผู้รับเรื่อง','สถานะ','วันที่อัปเดต']);
+        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
         docs.forEach(function(d) {
           ds.appendRow([
-            d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
-            (d.status==='final'||d.status==='เสร็จสิ้น') ? 'เสร็จสิ้น' : 'แบบร่าง',
-            d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH') : ''
+            d.id||'', d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
+            (d.status==='final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
+            d.updatedAt||'', d.createdAt||'',
+            (d.body||'').substring(0,500),
+            JSON.stringify(d)
           ]);
         });
-      } catch(sheetErr) { /* ไม่กระทบ property */ }
-      return jsonOut({ status: 'ok' });
+        return jsonOut({ status: 'ok', saved: docs.length });
+      } catch(e6) {
+        return jsonOut({ status: 'error', message: e6.toString() });
+      }
     }
 
-    // ── migrateUsers (รันครั้งเดียวผ่าน URL) ────────────────────
     if (action === 'migrateUsers') {
       var adminKey  = (e.parameter.adminKey || '');
       var storedKey = props.getProperty('IT_ADMIN_KEY') || 'it_admin_2024';
       if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
       migrateUsersToSheet();
-      return jsonOut({ ok: true, message: 'Migration complete — check Execution Log' });
+      return jsonOut({ ok: true, message: 'Migration complete' });
     }
 
-    // ── default ping ─────────────────────────────────────────────
-    return jsonOut({ status: 'ok', message: 'IT Service Desk — Google Sheet backend v2 (Users in Sheet)' });
+    return jsonOut({ status: 'ok', message: 'IT Service Desk GAS Backend v3' });
 
   } catch(err) {
     return jsonOut({ status: 'error', message: err.toString() });
@@ -7366,10 +7245,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     var params = {};
-
-    if (e && e.postData && e.postData.contents &&
-        (e.postData.type === 'application/x-www-form-urlencoded' ||
-         e.postData.contents.indexOf('action=') !== -1)) {
+    if (e && e.postData && e.postData.contents) {
       e.postData.contents.split('&').forEach(function(pair) {
         var idx = pair.indexOf('=');
         if (idx > 0) {
@@ -7378,15 +7254,11 @@ function doPost(e) {
           params[k] = v;
         }
       });
-    } else if (e && e.postData && e.postData.type === 'application/json') {
-      try { params = JSON.parse(e.postData.contents || '{}'); } catch(je) {}
-    } else if (e && e.parameter) {
-      params = e.parameter;
     }
-
-    if (!e.parameter) e.parameter = {};
-    Object.keys(params).forEach(function(k){ e.parameter[k] = params[k]; });
-
+    if (e && e.parameter) {
+      Object.keys(e.parameter).forEach(function(k){ if (!params[k]) params[k] = e.parameter[k]; });
+    }
+    e.parameter = params;
     var action = params.action || '';
     if (action) return doGet(e);
 
@@ -7403,7 +7275,7 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
-`;
+`
 
 function copyAppsScriptCode() {
     // ใช้ textarea fallback เสมอ — รองรับทั้ง http และ https
@@ -11576,27 +11448,35 @@ async function docSyncToSheet(docs, silent) {
 }
 
 async function docManualSync() {
-    const mainGasOk = !!getGasDbUrl();
-    const docGasOk  = !!docGetGasUrl();
     const syncBadge = document.getElementById('doc-sync-status');
     if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลัง Sync...</span>';
 
-    // โหลดข้อมูลล่าสุดจากทุกแหล่งก่อน (GAS → shared storage → localStorage)
-    await docGetAllAsync();
-    const currentDocs = docGetAll();
-
-    // push ขึ้น shared storage เสมอ (ทำให้ทุก account เห็นร่วมกัน)
-    await docSharedStorageSet(currentDocs);
-
-    if (mainGasOk || docGasOk) {
-        docSyncToSheet(currentDocs, false);
-    } else {
-        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ Sync แล้ว</span>';
-        showToast('☁️ Sync ข้อมูลขึ้น Shared Storage เรียบร้อย — ทุก account จะเห็นเอกสารร่วมกัน', 'success');
-        setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
+    const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
+    if (!hasGasUrl) {
+        showToast('⚠️ ยังไม่ได้เชื่อมต่อ Google Sheet — กรุณาตั้งค่า GAS URL ก่อน', 'error');
+        if (syncBadge) syncBadge.innerHTML = '';
+        return;
     }
 
+    // push ทีละ doc ขึ้น GAS แล้ว reload กลับมา
+    const currentDocs = docGetAll();
+    if (currentDocs.length > 0) {
+        for (const doc of currentDocs) {
+            await docPushSingleToGas(doc);
+            await new Promise(r => setTimeout(r, 150));
+        }
+    }
+    // batch sync ด้วย
+    docSyncToSheet(currentDocs, true);
+
+    // reload จาก GAS เพื่อยืนยัน
+    await new Promise(r => setTimeout(r, 1500));
+    await docGetAllAsync();
     docRenderList();
+
+    if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#15803d;font-weight:600;">☁️ Sync แล้ว</span>';
+    showToast('☁️ Sync เรียบร้อย — ทุก account จะเห็นเอกสารร่วมกัน', 'success');
+    setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 4000);
 }
 
 function docSyncSubject() {
@@ -11640,22 +11520,7 @@ async function docSharedStorageSet(docs) {
 async function docGetAllAsync() {
     _docGasHasData = false;
 
-    // PRIORITY 1: window.storage shared — ทุก account เห็นร่วมกัน (source of truth หลัก)
-    // GAS syncDocs มักล้มเหลวเมื่อ payload ใหญ่ (URL > 7500 chars → no-cors POST ไม่ตอบ)
-    try {
-        const sharedDocs = await docSharedStorageGet();
-        if (sharedDocs && Array.isArray(sharedDocs) && sharedDocs.length > 0) {
-            _docCache = sharedDocs;
-            localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-            // push ขึ้น GAS ด้วย (background)
-            if (getGasDbUrl() || docGetGasUrl()) docSyncToSheet(_docCache, true);
-            return _docCache;
-        }
-    } catch(e) {
-        console.warn('[docGetAllAsync] shared storage error:', e.message);
-    }
-
-    // PRIORITY 2: main GAS (fallback ถ้า shared storage ว่าง)
+    // PRIORITY 1: GAS Sheet โดยตรง — ทุก account เห็นร่วมกัน (source of truth)
     if (getGasDbUrl()) {
         try {
             const res = await gasFetch('getDocs');
@@ -11663,15 +11528,14 @@ async function docGetAllAsync() {
                 _docCache = res.docs;
                 _docGasHasData = true;
                 localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                await docSharedStorageSet(_docCache); // อัปขึ้น shared storage ทันที
                 return _docCache;
             }
         } catch(e) {
-            console.warn('[docGetAllAsync] main GAS error:', e.message);
+            console.warn('[docGetAllAsync] GAS error:', e.message);
         }
     }
 
-    // PRIORITY 3: custom doc GAS
+    // PRIORITY 2: custom doc GAS
     if (docGetGasUrl()) {
         try {
             const res = await docGasFetch('getDocs');
@@ -11679,7 +11543,6 @@ async function docGetAllAsync() {
                 _docCache = res.docs;
                 _docGasHasData = true;
                 localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                await docSharedStorageSet(_docCache);
                 return _docCache;
             }
         } catch(e) {
@@ -11687,7 +11550,7 @@ async function docGetAllAsync() {
         }
     }
 
-    // PRIORITY 4: localStorage (เฉพาะเครื่อง — fallback สุดท้าย)
+    // PRIORITY 3: localStorage (เฉพาะเครื่อง — fallback สุดท้าย)
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11701,10 +11564,24 @@ async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
         localStorage.setItem(DOC_KEY, JSON.stringify(docs));
-        await docSharedStorageSet(docs); // บันทึกลง shared storage ทันที (ทุก account เห็น)
-        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS ด้วย (ถ้ามี)
+        docSyncToSheet(docs, true); // sync ขึ้น GAS (เขียนลง Sheet โดยตรง)
     } catch (e) {
         console.error('docSaveAll error:', e);
+    }
+}
+
+// บันทึก doc เดียวลง GAS Sheet (ไม่ง้อ URL สั้น)
+async function docPushSingleToGas(docObj) {
+    const gasUrl = getGasDbUrl();
+    if (!gasUrl) return;
+    try {
+        const docJson = JSON.stringify(docObj);
+        // ส่งผ่าน no-cors POST (GAS doPost รับได้)
+        const body = new URLSearchParams({ action: 'addDoc', docJson });
+        await fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: body.toString(),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    } catch(e) {
+        console.warn('docPushSingleToGas error:', e);
     }
 }
 
@@ -11721,38 +11598,25 @@ async function docInitSharedStorage() {
     let localSnapshot = [];
     try { localSnapshot = JSON.parse(localStorage.getItem(DOC_KEY) || '[]'); } catch(e) {}
 
-    // โหลดจาก shared storage / GAS / localStorage
+    // โหลดจาก GAS Sheet (source of truth)
     await docGetAllAsync();
 
     const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
 
-    // ── CRITICAL: ถ้า localStorage มีข้อมูล แต่ shared storage ยังว่าง → push ขึ้นทันที ──
-    // (กรณีข้อมูลเก่าที่บันทึกก่อนอัปเดต หรือ GAS ส่งไม่สำเร็จ)
-    if (localSnapshot.length > 0) {
-        try {
-            const existingShared = await docSharedStorageGet();
-            if (!existingShared || existingShared.length === 0) {
-                // shared storage ว่าง แต่ localStorage มีข้อมูล → push ขึ้นทันที
-                if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate...</span>';
-                _docCache = localSnapshot;
-                localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
-                await docSharedStorageSet(localSnapshot);
-                if (hasGasUrl) docSyncToSheet(localSnapshot, true);
-                showToast('📤 migrate ข้อมูลเดิมขึ้น Shared Storage เรียบร้อย — ทุก account เห็นร่วมกันแล้ว', 'success');
-            } else if (localSnapshot.length > existingShared.length) {
-                // localStorage มีข้อมูลมากกว่า shared storage → merge แล้ว push
-                const mergedIds = new Set(existingShared.map(d => d.id));
-                const merged = [...existingShared];
-                localSnapshot.forEach(d => { if (!mergedIds.has(d.id)) merged.unshift(d); });
-                _docCache = merged;
-                localStorage.setItem(DOC_KEY, JSON.stringify(merged));
-                await docSharedStorageSet(merged);
-                if (hasGasUrl) docSyncToSheet(merged, true);
-                showToast('📤 merge ข้อมูลเรียบร้อย — ทุก account เห็นร่วมกันแล้ว', 'success');
-            }
-        } catch(e) {
-            console.warn('[docInitSharedStorage] migrate error:', e);
+    // ── CRITICAL MIGRATE: ถ้า GAS ว่าง แต่ localStorage มีข้อมูล → push ทีละ doc ──
+    if (!_docGasHasData && localSnapshot.length > 0 && hasGasUrl) {
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate...</span>';
+        _docCache = localSnapshot;
+        localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
+
+        // push ทีละ doc ผ่าน addDoc (ไม่มีปัญหา URL ยาว)
+        for (const doc of localSnapshot) {
+            await docPushSingleToGas(doc);
+            await new Promise(r => setTimeout(r, 200)); // หน่วงเล็กน้อย ไม่ให้ GAS throttle
         }
+        // sync batch ด้วยอีกที
+        docSyncToSheet(localSnapshot, true);
+        showToast('📤 migrate ' + localSnapshot.length + ' เอกสารขึ้น GAS เรียบร้อย — ทุก account เห็นร่วมกันแล้ว', 'success');
     }
 
     if (syncBadge) setTimeout(() => { if(syncBadge) syncBadge.innerHTML = ''; }, 3000);
@@ -11967,6 +11831,8 @@ async function docSave(status) {
         docs.unshift(docData);
     }
     await docSaveAllAsync(docs);
+    // push doc เดี่ยวขึ้น GAS ทันที (ไม่รอ batch syncDocs)
+    docPushSingleToGas(docData);
     const label = status === 'final' ? 'เสร็จสิ้น' : 'แบบร่าง';
     showToast(`✅ บันทึกเอกสาร "${number}" (${label}) เรียบร้อย`, 'success');
     docShowView('list');
@@ -11976,6 +11842,15 @@ async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
     const docs = await docGetAllAsync();
     await docSaveAllAsync(docs.filter(d => d.id !== id));
+    // แจ้ง GAS ลบ doc นี้ออกจาก Sheet โดยตรง
+    const gasUrl = getGasDbUrl();
+    if (gasUrl) {
+        try {
+            const body = new URLSearchParams({ action: 'deleteDoc', docId: id });
+            fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: body.toString(),
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        } catch(e) {}
+    }
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
 }
