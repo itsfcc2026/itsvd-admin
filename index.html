@@ -11596,9 +11596,32 @@ function docGetFullSubject() {
     return document.getElementById('doc-subject')?.value || '';
 }
 
-// ── Storage helpers — main GAS คือ source of truth, localStorage เป็น offline cache ──
+// ── Storage helpers — main GAS คือ source of truth, window.storage (shared) เป็น fallback ──
 let _docCache = null;
 let _docGasHasData = false; // flag ว่า GAS มีข้อมูลจริง (ไม่ใช่แค่ empty)
+
+// ── window.storage shared helpers (ทุก account เห็นร่วมกัน) ──────────────────
+const DOC_SHARED_KEY = 'it_clarify_docs_shared';
+
+async function docSharedStorageGet() {
+    try {
+        if (typeof window.storage === 'undefined') return null;
+        const result = await window.storage.get(DOC_SHARED_KEY, true); // shared=true
+        if (result && result.value) return JSON.parse(result.value);
+    } catch(e) {
+        // key ไม่มี หรือ parse ผิดพลาด → return null
+    }
+    return null;
+}
+
+async function docSharedStorageSet(docs) {
+    try {
+        if (typeof window.storage === 'undefined') return;
+        await window.storage.set(DOC_SHARED_KEY, JSON.stringify(docs), true); // shared=true
+    } catch(e) {
+        console.warn('[docSharedStorageSet] error:', e);
+    }
+}
 
 async function docGetAllAsync() {
     _docGasHasData = false;
@@ -11612,6 +11635,7 @@ async function docGetAllAsync() {
                 _docCache = res.docs;
                 _docGasHasData = true;
                 localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
+                await docSharedStorageSet(_docCache); // sync ขึ้น shared storage ด้วย
                 return _docCache;
             }
             // GAS คืน [] → อาจเป็น GAS ยังไม่มีข้อมูล ไม่ใช่ว่าลบหมด → fall through
@@ -11628,6 +11652,7 @@ async function docGetAllAsync() {
                 _docCache = res.docs;
                 _docGasHasData = true;
                 localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
+                await docSharedStorageSet(_docCache); // sync ขึ้น shared storage ด้วย
                 return _docCache;
             }
         } catch(e) {
@@ -11635,7 +11660,19 @@ async function docGetAllAsync() {
         }
     }
 
-    // 3. Fallback: localStorage cache (ข้อมูลที่ยังไม่ได้ sync ขึ้น GAS)
+    // 3. ลอง window.storage shared (ทุก account เห็นร่วมกัน — ไม่ต้องตั้ง GAS)
+    try {
+        const sharedDocs = await docSharedStorageGet();
+        if (sharedDocs && Array.isArray(sharedDocs) && sharedDocs.length > 0) {
+            _docCache = sharedDocs;
+            localStorage.setItem(DOC_KEY, JSON.stringify(_docCache)); // cache ลง local ด้วย
+            return _docCache;
+        }
+    } catch(e) {
+        console.warn('[docGetAllAsync] shared storage error:', e.message);
+    }
+
+    // 4. Fallback: localStorage cache (เฉพาะเครื่อง — ใช้เมื่อไม่มีทางเลือกอื่น)
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11649,7 +11686,8 @@ async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
         localStorage.setItem(DOC_KEY, JSON.stringify(docs));
-        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS
+        await docSharedStorageSet(docs); // บันทึกลง shared storage ทันที (ทุก account เห็น)
+        docSyncToSheet(docs, true); // auto-sync ขึ้น GAS ด้วย (ถ้ามี)
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
@@ -11659,7 +11697,7 @@ async function docSaveAllAsync(docs) {
 function docGetAll() { return _docCache || []; }
 function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
 
-// ── โหลดข้อมูลจาก GAS / localStorage และ auto-migrate ──────────────────────
+// ── โหลดข้อมูลจาก GAS / shared storage / localStorage และ auto-migrate ──────
 async function docInitSharedStorage() {
     // snapshot localStorage ก่อน (ป้องกันถูก overwrite)
     let localSnapshot = [];
@@ -11670,14 +11708,25 @@ async function docInitSharedStorage() {
 
     await docGetAllAsync();
 
-    // ── Auto-migrate: ถ้า GAS ไม่มีข้อมูล แต่ localStorage มี → push ขึ้น GAS ──
     const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
+
+    // ── Auto-migrate: ถ้า GAS ไม่มีข้อมูล แต่ localStorage มี → push ขึ้น GAS + shared storage ──
     if (!_docGasHasData && localSnapshot.length > 0 && hasGasUrl) {
         _docCache = localSnapshot;
         localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
         if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ข้อมูลขึ้น GAS...</span>';
         docSyncToSheet(localSnapshot, true);
+        await docSharedStorageSet(localSnapshot);
         showToast('📤 กำลัง migrate ข้อมูลเดิมขึ้น Google Sheet ให้ทุก account เห็นร่วมกัน', 'success');
+    }
+
+    // ── Auto-migrate: ถ้าไม่มี GAS เลย แต่ localStorage มีข้อมูล → push ขึ้น shared storage ──
+    if (!hasGasUrl && localSnapshot.length > 0 && (_docCache === null || _docCache.length === 0)) {
+        _docCache = localSnapshot;
+        localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
+        if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate ข้อมูลขึ้น Shared Storage...</span>';
+        await docSharedStorageSet(localSnapshot);
+        showToast('📤 migrate ข้อมูลเดิมขึ้น Shared Storage เรียบร้อย — ทุก account จะเห็นเอกสารร่วมกัน', 'success');
     }
 
     if (syncBadge) setTimeout(() => { if(syncBadge) syncBadge.innerHTML = ''; }, 3000);
