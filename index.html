@@ -7121,30 +7121,36 @@ function doGet(e) {
     // ทุก account เห็นร่วมกันได้ทันที ไม่ผ่าน ScriptProperties
     // ══════════════════════════════════════════════════════════
 
-    // getDocs — อ่านจาก Sheet โดยตรง
+    // getDocs — อ่านจาก Sheet (json_full) + fallback ScriptProperties
     if (action === 'getDocs') {
       try {
         var ds = getDocSheet();
         var lastRow = ds.getLastRow();
-        if (lastRow < 2) return jsonOut({ status: 'ok', docs: [] });
-        var rows = ds.getRange(2, 1, lastRow - 1, 10).getValues();
-        var docs = rows
-          .filter(function(r){ return r[0] && r[0] !== ''; })
-          .map(function(r){
-            try {
-              var parsed = JSON.parse(r[9] || 'null');
-              if (parsed) return parsed;
-            } catch(e2){}
-            // fallback: สร้าง object จากคอลัมน์พื้นฐาน
-            return {
-              id: r[0], number: r[1], subject: r[2], category: r[3],
-              sig1Name: r[4], status: r[5] === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
-              updatedAt: r[6], createdAt: r[7], body: r[8]
-            };
-          });
-        return jsonOut({ status: 'ok', docs: docs });
+        if (lastRow >= 2) {
+          var rows = ds.getRange(2, 1, lastRow - 1, 10).getValues();
+          var validRows = rows.filter(function(r){ return r[0] && r[0] !== ''; });
+          if (validRows.length > 0) {
+            var docs = validRows.map(function(r){
+              var jsonFull = r[9] ? r[9].toString().trim() : '';
+              if (jsonFull && jsonFull.charAt(0) === '{') {
+                try { var parsed = JSON.parse(jsonFull); if (parsed && parsed.id) return parsed; } catch(e2){}
+              }
+              // fallback: reconstruct from columns
+              return {
+                id: r[0]+'', number: r[1]+'', subject: r[2]+'', category: r[3]+'',
+                sig1Name: r[4]+'', status: (r[5]+'') === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
+                updatedAt: r[6]+'', createdAt: r[7]+'', body: r[8]+''
+              };
+            });
+            return jsonOut({ status: 'ok', docs: docs });
+          }
+        }
+        // Sheet ว่าง → ลอง ScriptProperties (ข้อมูลเก่า)
+        var rawDocs = props.getProperty('IT_DOC_CLARIFY');
+        return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
       } catch(e3) {
-        return jsonOut({ status: 'error', message: e3.toString() });
+        var rawDocs = props.getProperty('IT_DOC_CLARIFY');
+        return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
       }
     }
 
@@ -11576,10 +11582,31 @@ async function docPushSingleToGas(docObj) {
     if (!gasUrl) return;
     try {
         const docJson = JSON.stringify(docObj);
-        // ส่งผ่าน no-cors POST (GAS doPost รับได้)
-        const body = new URLSearchParams({ action: 'addDoc', docJson });
-        await fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: body.toString(),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        // ส่งผ่าน GET — GAS อ่าน e.parameter ได้จาก GET เสมอ
+        const params = new URLSearchParams({ action: 'addDoc', docJson });
+        const fullUrl = gasUrl + '?' + params.toString();
+
+        if (fullUrl.length <= 7500) {
+            // URL สั้นพอ → ใช้ GET ปกติ (GAS ตอบกลับได้)
+            await fetch(fullUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        } else {
+            // URL ยาวเกิน → ส่งทีละ field แยก (ไม่ส่ง json_full ใหญ่)
+            // แยกส่งเฉพาะ field หลักที่จำเป็น แล้วค่อย syncDocs batch ทีหลัง
+            const safeParams = new URLSearchParams({
+                action: 'addDoc',
+                docJson: JSON.stringify({
+                    id: docObj.id, number: docObj.number,
+                    subject: docObj.subject, category: docObj.category,
+                    sig1Name: docObj.sig1Name, sig1Date: docObj.sig1Date,
+                    sig2Name: docObj.sig2Name, sig2Date: docObj.sig2Date, sig2Show: docObj.sig2Show,
+                    sig3Name: docObj.sig3Name, sig3Date: docObj.sig3Date,
+                    status: docObj.status, updatedAt: docObj.updatedAt, createdAt: docObj.createdAt,
+                    body: (docObj.body || '').substring(0, 800)
+                })
+            });
+            const safeUrl = gasUrl + '?' + safeParams.toString();
+            await fetch(safeUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        }
     } catch(e) {
         console.warn('docPushSingleToGas error:', e);
     }
