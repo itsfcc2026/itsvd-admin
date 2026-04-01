@@ -3316,15 +3316,25 @@
                     </div>
                 </div>
 
+                <!-- Info bar: เลขล่าสุด + limit -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;padding:0 2px;">
+                    <div id="doc-last-number-bar" style="display:flex;align-items:center;gap:8px;font-size:.8rem;color:#475569;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2C4A52" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        <span style="color:#64748b;">เลขที่เอกสารล่าสุด:</span>
+                        <span id="doc-last-number-display" style="font-weight:800;color:#2C4A52;font-size:.85rem;">—</span>
+                        <span style="color:#94a3b8;font-size:.73rem;">(เลขถัดไป: <span id="doc-next-number-display" style="font-weight:700;color:#0284c7;">—</span>)</span>
+                    </div>
+
+                </div>
+
                 <!-- Search + Filter -->
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                     <div style="position:relative;flex:1;min-width:200px;">
                         <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <div id="doc-my-limit" style="font-size:.78rem;font-weight:700;color:#64748b;white-space:nowrap;padding:0 4px;"></div>
-                        <input type="text" id="doc-search" placeholder="ค้นหาเอกสาร..." oninput="docRenderList()"
+                        <input type="text" id="doc-search" placeholder="ค้นหาเอกสาร..." oninput="window._docPage=0;docRenderList()"
                             style="width:100%;padding:8px 12px 8px 34px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.85rem;">
                     </div>
-                    <select id="doc-filter-cat" onchange="docRenderList()"
+                    <select id="doc-filter-cat" onchange="window._docPage=0;docRenderList()"
                         style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.82rem;background:white;">
                         <option value="">ทุกประเภท</option>
                         <option value="ซื้อใหม่">ซื้อใหม่</option>
@@ -3332,7 +3342,7 @@
                         <option value="ส่งซ่อม">ส่งซ่อม</option>
                         <option value="อื่นๆ">อื่นๆ</option>
                     </select>
-                    <select id="doc-filter-status" onchange="docRenderList()"
+                    <select id="doc-filter-status" onchange="window._docPage=0;docRenderList()"
                         style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.82rem;background:white;">
                         <option value="">ทุกสถานะ</option>
                         <option value="draft">แบบร่าง</option>
@@ -11694,11 +11704,11 @@ function docGetBEYear() {
     return new Date().getFullYear() + 543;
 }
 
-// ── สร้างเลขเอกสารถัดไป (ITS XXXX/YYYY) ────────────────────────────────────
+// ── สร้างเลขเอกสารถัดไป (ITS XXXX/YYYY) — รันต่อจาก global max เสมอ ────────
 function docNextNumber() {
     const docs = docGetAll();
     const year  = docGetBEYear();
-    // หาเลขสูงสุดที่มีอยู่ในปีนี้
+    // หาเลขสูงสุดจากทุก doc ทุก account (global)
     let maxSeq = 1000;
     docs.forEach(d => {
         const m = (d.number || '').match(/ITS\s*(\d+)\//);
@@ -11707,7 +11717,7 @@ function docNextNumber() {
             if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
         }
     });
-    return { seq: maxSeq + 1, year };
+    return { seq: maxSeq + 1, year, lastSeq: maxSeq };
 }
 
 // ── อัปเดต hidden doc-number เมื่อ seq เปลี่ยน ──────────────────────────────
@@ -11757,14 +11767,6 @@ function docToggleSig2() {
 }
 
 function docNewDocument() {
-    // ตรวจ limit 5 เอกสารต่อ account
-    const meUser = sessionStorage.getItem('it_current_user') || '';
-    const myDocs = docGetAll().filter(d => (d.createdBy || '') === meUser);
-    if (myDocs.length >= 5) {
-        showToast('⚠️ ครบ 5 เอกสารแล้ว — กรุณาลบเอกสารเก่าก่อนสร้างใหม่', 'error');
-        return;
-    }
-
     _docEditId = null;
     // clear text fields
     ['doc-subject','doc-subject-suffix','doc-body','doc-body-p1','doc-body-p2'].forEach(id => {
@@ -11773,10 +11775,16 @@ function docNewDocument() {
     });
     document.getElementById('doc-category').value = 'ซื้อใหม่';
 
-    // auto-generate doc number
+    // auto-generate doc number — บังคับรันต่อจาก global max เสมอ
     const { seq, year } = docNextNumber();
     const seqEl = document.getElementById('doc-number-seq');
-    if (seqEl) seqEl.value = seq;
+    if (seqEl) {
+        seqEl.value = seq;
+        seqEl.readOnly = true; // ล็อคไม่ให้แก้
+        seqEl.style.background = '#f1f5f9';
+        seqEl.style.color = '#64748b';
+        seqEl.title = 'เลขเอกสารถูกกำหนดอัตโนมัติ';
+    }
     const yearEl = document.getElementById('doc-number-year');
     if (yearEl) yearEl.textContent = `/ ${year}`;
     const numEl = document.getElementById('doc-number');
@@ -11793,12 +11801,17 @@ function docEditDocument(id) {
     if (!doc) return;
     _docEditId = id;
 
-    // parse doc number back to seq + year
+    // parse doc number back to seq + year — ล็อคไม่ให้แก้เลข
     const m = (doc.number || '').match(/ITS\s*(\d+)\/(\d+)/);
     const seqEl  = document.getElementById('doc-number-seq');
     const yearEl = document.getElementById('doc-number-year');
     if (m) {
-        if (seqEl)  seqEl.value       = m[1];
+        if (seqEl) {
+            seqEl.value    = m[1];
+            seqEl.readOnly = true;
+            seqEl.style.background = '#f1f5f9';
+            seqEl.style.color = '#64748b';
+        }
         if (yearEl) yearEl.textContent = `/ ${m[2]}`;
     } else {
         if (seqEl)  seqEl.value       = '';
@@ -11854,15 +11867,27 @@ async function docSave(status) {
     const docs = docGetAll();
     const now = new Date().toISOString();
     const currentUser = sessionStorage.getItem('it_current_user') || '';
-    // ตรวจสิทธิ์: account อื่น (ไม่ใช่ผู้สร้าง) สร้างใหม่ไม่ได้
     if (!_docEditId) {
-        const myDocs = docs.filter(d => d.createdBy === currentUser);
-        if (myDocs.length >= 5) {
-            showToast('⚠️ ครบ 5 เอกสารแล้ว — ลบเอกสารเก่าก่อนสร้างใหม่', 'error');
+        // ตรวจเลขซ้ำ
+        const dupNum = docs.find(d => d.number === number);
+        if (dupNum) {
+            showToast(`⚠️ เลขที่ "${number}" ถูกใช้ไปแล้ว — ระบบจะใช้เลขถัดไปแทน`, 'error');
             return;
         }
+        // ตรวจว่าเลขน้อยกว่า global max หรือไม่
+        const mNum = number.match(/ITS\s*(\d+)\//);
+        if (mNum) {
+            let globalMax = 1000;
+            docs.forEach(d => {
+                const mx = (d.number||'').match(/ITS\s*(\d+)\//);
+                if (mx && parseInt(mx[1]) > globalMax) globalMax = parseInt(mx[1]);
+            });
+            if (parseInt(mNum[1]) <= globalMax) {
+                showToast(`⚠️ เลขที่เอกสารต้องมากกว่า ITS ${globalMax}/${docGetBEYear()} — กรุณาสร้างใหม่`, 'error');
+                return;
+            }
+        }
     } else {
-        // แก้ไข: ต้องเป็นผู้สร้างเท่านั้น
         const existing = docs.find(d => d.id === _docEditId);
         if (existing && existing.createdBy && existing.createdBy !== currentUser) {
             showToast('⚠️ ไม่มีสิทธิ์แก้ไขเอกสารของผู้อื่น', 'error');
@@ -11931,7 +11956,23 @@ function docRenderList() {
     const catF    = document.getElementById('doc-filter-cat')?.value || '';
     const statF   = document.getElementById('doc-filter-status')?.value || '';
     const meUser  = sessionStorage.getItem('it_current_user') || '';
-    let docs = docGetAll();
+    const allDocs = docGetAll();
+
+    // ── อัปเดต: เลขเอกสารล่าสุด + เลขถัดไป (จากทุก doc ทุก account) ──
+    let maxSeq = 0, lastNum = '—';
+    allDocs.forEach(d => {
+        const m = (d.number || '').match(/ITS\s*(\d+)\//);
+        if (m) {
+            const s = parseInt(m[1]);
+            if (!isNaN(s) && s > maxSeq) { maxSeq = s; lastNum = d.number; }
+        }
+    });
+    const lastEl = document.getElementById('doc-last-number-display');
+    const nextEl = document.getElementById('doc-next-number-display');
+    if (lastEl) lastEl.textContent = maxSeq > 0 ? lastNum : '—';
+    if (nextEl) nextEl.textContent = `ITS ${maxSeq + 1}/${docGetBEYear()}`;
+
+    let docs = allDocs;
     if (search) docs = docs.filter(d =>
         (d.number||'').toLowerCase().includes(search) ||
         (d.subject||'').toLowerCase().includes(search)
@@ -11941,18 +11982,23 @@ function docRenderList() {
 
     if (!docs.length) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
+        docRenderPagination(0, 0, 0);
         return;
     }
 
-    // แสดงจำนวนเอกสารของ user นี้ (limit 5)
-    const myCount = docGetAll().filter(d => (d.createdBy || '') === meUser).length;
-    const limitBar = document.getElementById('doc-my-limit');
-    if (limitBar) {
-        limitBar.textContent = `เอกสารของฉัน: ${myCount}/5`;
-        limitBar.style.color = myCount >= 5 ? '#dc2626' : '#64748b';
-    }
+    // ── Pagination: แสดงหน้าละ 10 รายการล่าสุด ──
+    const PAGE_SIZE = 10;
+    const totalDocs = docs.length;
+    const totalPages = Math.ceil(totalDocs / PAGE_SIZE);
+    if (typeof _docPage === 'undefined') window._docPage = 0;
+    if (window._docPage >= totalPages) window._docPage = totalPages - 1;
+    if (window._docPage < 0) window._docPage = 0;
+    const startIdx = window._docPage * PAGE_SIZE;
+    const pageDocs = docs.slice(startIdx, startIdx + PAGE_SIZE);
 
-    tbody.innerHTML = docs.map((d,i) => {
+    docRenderPagination(window._docPage, totalPages, totalDocs);
+
+    tbody.innerHTML = pageDocs.map((d,i) => {
         const isOwner = !d.createdBy || d.createdBy === meUser; // เจ้าของเอกสาร
         const statusHtml = d.status === 'final'
             ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
@@ -11982,6 +12028,41 @@ function docRenderList() {
             </td>
         </tr>`;
     }).join('');
+}
+
+// ── Pagination UI ────────────────────────────────────────────────────────────
+function docRenderPagination(page, totalPages, totalDocs) {
+    let pg = document.getElementById('doc-pagination');
+    if (!pg) {
+        // สร้าง pagination bar ใต้ตาราง
+        const tableWrap = document.querySelector('#doc-view-list .doc-table-wrap') ||
+                          document.getElementById('doc-list-tbody')?.closest('div[style*="border-radius:14px"]');
+        if (tableWrap) {
+            pg = document.createElement('div');
+            pg.id = 'doc-pagination';
+            pg.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #f1f5f9;background:#fafbff;border-radius:0 0 14px 14px;';
+            tableWrap.appendChild(pg);
+        }
+    }
+    if (!pg) return;
+    if (totalPages <= 1) { pg.style.display = 'none'; return; }
+    pg.style.display = 'flex';
+    const from = page * 10 + 1;
+    const to   = Math.min((page + 1) * 10, totalDocs);
+    pg.innerHTML = `
+        <span style="font-size:.78rem;color:#64748b;">แสดง ${from}–${to} จาก ${totalDocs} รายการ</span>
+        <div style="display:flex;gap:4px;align-items:center;">
+            <button onclick="docGoPage(0)" ${page===0?'disabled':''} style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.75rem;color:#475569;${page===0?'opacity:.4;cursor:default;':''}">«</button>
+            <button onclick="docGoPage(${page-1})" ${page===0?'disabled':''} style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.78rem;color:#475569;${page===0?'opacity:.4;cursor:default;':''}">‹ ก่อนหน้า</button>
+            <span style="font-size:.78rem;font-weight:700;color:#2C4A52;padding:4px 10px;background:#E8F2F4;border-radius:6px;">หน้า ${page+1}/${totalPages}</span>
+            <button onclick="docGoPage(${page+1})" ${page===totalPages-1?'disabled':''} style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.78rem;color:#475569;${page===totalPages-1?'opacity:.4;cursor:default;':''}">ถัดไป ›</button>
+            <button onclick="docGoPage(${totalPages-1})" ${page===totalPages-1?'disabled':''} style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.75rem;color:#475569;${page===totalPages-1?'opacity:.4;cursor:default;':''}">»</button>
+        </div>`;
+}
+
+function docGoPage(p) {
+    window._docPage = p;
+    docRenderList();
 }
 
 function docFormatDate(dateStr) {
