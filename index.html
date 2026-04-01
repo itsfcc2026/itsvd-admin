@@ -3316,25 +3316,14 @@
                     </div>
                 </div>
 
-                <!-- Info bar: เลขล่าสุด + limit -->
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;padding:0 2px;">
-                    <div id="doc-last-number-bar" style="display:flex;align-items:center;gap:8px;font-size:.8rem;color:#475569;">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2C4A52" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        <span style="color:#64748b;">เลขที่เอกสารล่าสุด:</span>
-                        <span id="doc-last-number-display" style="font-weight:800;color:#2C4A52;font-size:.85rem;">—</span>
-                        <span style="color:#94a3b8;font-size:.73rem;">(เลขถัดไป: <span id="doc-next-number-display" style="font-weight:700;color:#0284c7;">—</span>)</span>
-                    </div>
-
-                </div>
-
                 <!-- Search + Filter -->
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                     <div style="position:relative;flex:1;min-width:200px;">
                         <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text" id="doc-search" placeholder="ค้นหาเอกสาร..." oninput="window._docPage=0;docRenderList()"
+                        <input type="text" id="doc-search" placeholder="ค้นหาเอกสาร..." oninput="docRenderList()"
                             style="width:100%;padding:8px 12px 8px 34px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.85rem;">
                     </div>
-                    <select id="doc-filter-cat" onchange="window._docPage=0;docRenderList()"
+                    <select id="doc-filter-cat" onchange="docRenderList()"
                         style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.82rem;background:white;">
                         <option value="">ทุกประเภท</option>
                         <option value="ซื้อใหม่">ซื้อใหม่</option>
@@ -3342,7 +3331,7 @@
                         <option value="ส่งซ่อม">ส่งซ่อม</option>
                         <option value="อื่นๆ">อื่นๆ</option>
                     </select>
-                    <select id="doc-filter-status" onchange="window._docPage=0;docRenderList()"
+                    <select id="doc-filter-status" onchange="docRenderList()"
                         style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.82rem;background:white;">
                         <option value="">ทุกสถานะ</option>
                         <option value="draft">แบบร่าง</option>
@@ -6892,7 +6881,7 @@ function getDocSheet() {
   var ds = ss.getSheetByName('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
   if (!ds) {
     ds = ss.insertSheet('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
-    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
+    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
   }
   return ds;
 }
@@ -7132,59 +7121,55 @@ function doGet(e) {
     // ทุก account เห็นร่วมกันได้ทันที ไม่ผ่าน ScriptProperties
     // ══════════════════════════════════════════════════════════
 
-    // getDocs — อ่านจาก Sheet columns โดยตรง (ไม่ง้อ json_full)
-    // columns: 0=id, 1=number, 2=subject, 3=category, 4=sig1Name,
-    //          5=status, 6=updatedAt, 7=createdAt, 8=body, 9=json_full, 10=createdBy
+    // getDocs — อ่านจาก Sheet columns โดยตรง
+    // col: 0=id 1=number 2=subject 3=category 4=sig1Name 5=status 6=updatedAt 7=createdAt 8=body 9=json_full 10=createdBy
     if (action === 'getDocs') {
       try {
         var ds = getDocSheet();
         var lastRow = ds.getLastRow();
-        if (lastRow >= 2) {
-          var rows = ds.getRange(2, 1, lastRow - 1, 11).getValues();
-          var validRows = rows.filter(function(r){ return r[0] && r[0].toString().trim() !== ''; });
-          if (validRows.length > 0) {
-            var docs = validRows.map(function(r){
-              // ลอง parse json_full ก่อน (ข้อมูลครบที่สุด)
-              var jsonFull = r[9] ? r[9].toString().trim() : '';
-              if (jsonFull && jsonFull.charAt(0) === '{') {
-                try {
-                  var parsed = JSON.parse(jsonFull);
-                  if (parsed && parsed.id) return parsed;
-                } catch(e2){}
-              }
-              // fallback: อ่านจาก columns โดยตรง (columns ถูกเสมอ)
-              return {
-                id:        r[0].toString(),
-                number:    r[1].toString(),
-                subject:   r[2].toString(),
-                category:  r[3].toString(),
-                sig1Name:  r[4].toString(),
-                status:    r[5].toString() === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
-                updatedAt: r[6] ? (r[6] instanceof Date ? r[6].toISOString() : r[6].toString()) : '',
-                createdAt: r[7] ? (r[7] instanceof Date ? r[7].toISOString() : r[7].toString()) : '',
-                body:      r[8].toString(),
-                createdBy: r[10] ? r[10].toString() : ''
-              };
-            });
-            return jsonOut({ status: 'ok', docs: docs });
-          }
+        if (lastRow < 2) {
+          var rawDocs = props.getProperty('IT_DOC_CLARIFY');
+          return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
         }
-        // Sheet ว่าง → ลอง ScriptProperties (ข้อมูลเก่า)
-        var rawDocs = props.getProperty('IT_DOC_CLARIFY');
-        return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
+        var rows = ds.getRange(2, 1, lastRow - 1, 11).getValues();
+        var docs = rows
+          .filter(function(r){ return r[0] && r[0].toString().trim() !== ''; })
+          .map(function(r){
+            // อ่าน columns ตรงๆ เสมอ (ไม่ง้อ json_full ที่อาจว่าง)
+            var id        = r[0].toString().trim();
+            var number    = r[1].toString().trim();
+            var subject   = r[2].toString().trim();
+            var category  = r[3].toString().trim();
+            var sig1Name  = r[4].toString().trim();
+            var statusRaw = r[5].toString().trim();
+            var updatedAt = r[6] instanceof Date ? r[6].toISOString() : r[6].toString();
+            var createdAt = r[7] instanceof Date ? r[7].toISOString() : r[7].toString();
+            var body      = r[8].toString();
+            var createdBy = r[10] ? r[10].toString().trim() : '';
+            // ลอง parse json_full เพื่อดึง field พิเศษ (sig dates ฯลฯ)
+            var extra = {};
+            try {
+              var jf = r[9] ? r[9].toString().trim() : '';
+              if (jf && jf.charAt(0) === '{') extra = JSON.parse(jf);
+            } catch(e2) {}
+            return Object.assign({}, extra, {
+              id: id, number: number, subject: subject, category: category,
+              sig1Name: sig1Name, status: statusRaw === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
+              updatedAt: updatedAt, createdAt: createdAt, body: body, createdBy: createdBy
+            });
+          });
+        return jsonOut({ status: 'ok', docs: docs });
       } catch(e3) {
-        var rawDocs = props.getProperty('IT_DOC_CLARIFY');
-        return jsonOut({ status: 'ok', docs: rawDocs ? JSON.parse(rawDocs) : [] });
+        return jsonOut({ status: 'error', message: e3.toString() });
       }
     }
 
-    // addDoc — รับ field แยกทีละตัว (ไม่รับ JSON ยาวๆ เพื่อหลีกเลี่ยง URL limit)
+        // addDoc — รับ field แยก ทีละตัว ผ่าน GET (ไม่มีปัญหา URL / CORS)
     if (action === 'addDoc') {
       try {
         var p = e.parameter;
-        var docId = p.id || p.docId || '';
+        var docId = (p.id || p.docId || '').trim();
         if (!docId) return jsonOut({ status: 'error', message: 'no doc id' });
-        // สร้าง docObj จาก parameters ทีละ field
         var docObj = {
           id:        docId,
           number:    p.number    || '',
@@ -7209,21 +7194,16 @@ function doGet(e) {
         if (lastRow > 1) {
           var ids = ds.getRange(2, 1, lastRow - 1, 1).getValues();
           for (var i = 0; i < ids.length; i++) {
-            if (ids[i][0] === docId) { foundRow = i + 2; break; }
+            if (ids[i][0].toString().trim() === docId) { foundRow = i + 2; break; }
           }
         }
+        var statusTh = docObj.status === 'final' ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07';
         var rowData = [
-          docObj.id,
-          docObj.number,
-          docObj.subject,
-          docObj.category,
-          docObj.sig1Name,
-          (docObj.status === 'final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e27',
-          docObj.updatedAt,
-          docObj.createdAt,
+          docObj.id, docObj.number, docObj.subject, docObj.category, docObj.sig1Name,
+          statusTh, docObj.updatedAt, docObj.createdAt,
           (docObj.body || '').substring(0, 500),
           JSON.stringify(docObj),
-          docObj.createdBy || ''
+          docObj.createdBy
         ];
         if (foundRow > 0) {
           ds.getRange(foundRow, 1, 1, 11).setValues([rowData]);
@@ -7236,7 +7216,7 @@ function doGet(e) {
       }
     }
 
-    // deleteDoc — ลบ doc จาก Sheet
+        // deleteDoc — ลบ doc จาก Sheet
     if (action === 'deleteDoc') {
       try {
         var delId = e.parameter.docId || '';
@@ -7260,7 +7240,7 @@ function doGet(e) {
         var docs = parseParam(e.parameter.docs, []);
         var ds = getDocSheet();
         ds.clearContents();
-        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
+        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
         docs.forEach(function(d) {
           ds.appendRow([
             d.id||'', d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
@@ -11542,159 +11522,111 @@ function docGetFullSubject() {
 
 // ── Storage helpers — main GAS คือ source of truth, window.storage (shared) เป็น fallback ──
 let _docCache = null;
-let _docGasHasData = false; // flag ว่า GAS มีข้อมูลจริง (ไม่ใช่แค่ empty)
+let _docGasHasData = false;
 
-// ── window.storage shared helpers (ทุก account เห็นร่วมกัน) ──────────────────
-const DOC_SHARED_KEY = 'it_clarify_docs_shared';
-
-async function docSharedStorageGet() {
-    try {
-        if (typeof window.storage === 'undefined') return null;
-        const result = await window.storage.get(DOC_SHARED_KEY, true); // shared=true
-        if (result && result.value) return JSON.parse(result.value);
-    } catch(e) {
-        // key ไม่มี หรือ parse ผิดพลาด → return null
-    }
-    return null;
-}
-
-async function docSharedStorageSet(docs) {
-    try {
-        if (typeof window.storage === 'undefined') return;
-        await window.storage.set(DOC_SHARED_KEY, JSON.stringify(docs), true); // shared=true
-    } catch(e) {
-        console.warn('[docSharedStorageSet] error:', e);
-    }
-}
+// ════════════════════════════════════════════════════════════
+// DOC STORAGE — GAS เป็น shared store, localStorage เป็น cache
+// getDocs อ่านจาก GAS Sheet columns โดยตรง (ไม่ง้อ json_full)
+// addDoc/deleteDoc ส่งผ่าน GET (GAS อ่าน e.parameter ได้เสมอ)
+// ════════════════════════════════════════════════════════════
 
 async function docGetAllAsync() {
     _docGasHasData = false;
-
-    // PRIORITY 1: GAS Sheet โดยตรง — ทุก account เห็นร่วมกัน (source of truth)
     if (getGasDbUrl()) {
         try {
             const res = await gasFetch('getDocs');
+            // รับข้อมูลจาก GAS ต่อเมื่อ docs เป็น array และแต่ละ item มี number field ที่ถูกต้อง
             if (res && Array.isArray(res.docs) && res.docs.length > 0) {
-                _docCache = res.docs;
-                _docGasHasData = true;
-                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                return _docCache;
+                // ตรวจว่า number ไม่ใช่ subject (ป้องกัน GAS เก่าที่ columns สลับ)
+                const firstDoc = res.docs[0];
+                const numberLooksValid = firstDoc.number && /ITS/i.test(firstDoc.number);
+                const subjectLooksWrong = firstDoc.number && firstDoc.number.includes('เอกสารชี้แจง');
+                if (numberLooksValid && !subjectLooksWrong) {
+                    _docCache = res.docs;
+                    _docGasHasData = true;
+                    localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
+                    return _docCache;
+                } else {
+                    // GAS เก่า — ข้ามไปใช้ localStorage
+                    console.warn('[docGetAllAsync] GAS returned wrong column order, falling back to localStorage');
+                }
             }
         } catch(e) {
             console.warn('[docGetAllAsync] GAS error:', e.message);
         }
     }
-
-    // PRIORITY 2: custom doc GAS
-    if (docGetGasUrl()) {
-        try {
-            const res = await docGasFetch('getDocs');
-            if (res && Array.isArray(res.docs) && res.docs.length > 0) {
-                _docCache = res.docs;
-                _docGasHasData = true;
-                localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                return _docCache;
-            }
-        } catch(e) {
-            console.warn('[docGetAllAsync] doc GAS error:', e.message);
-        }
-    }
-
-    // PRIORITY 3: localStorage (เฉพาะเครื่อง — fallback สุดท้าย)
+    // Fallback: localStorage
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
-    } catch (e) {
-        _docCache = [];
-    }
+    } catch(e) { _docCache = []; }
     return _docCache;
 }
 
 async function docSaveAllAsync(docs) {
     _docCache = docs;
-    try {
-        localStorage.setItem(DOC_KEY, JSON.stringify(docs));
-        // ไม่ใช้ syncDocs batch (URL ยาวเกิน) — ใช้ addDoc ทีละตัวแทน
-        // การ push แต่ละ doc ทำใน docSave() → docPushSingleToGas()
-    } catch (e) {
-        console.error('docSaveAll error:', e);
-    }
+    try { localStorage.setItem(DOC_KEY, JSON.stringify(docs)); } catch(e) {}
 }
 
-// บันทึก doc เดียวลง GAS Sheet (ไม่ง้อ URL สั้น)
+// ส่ง doc เดียวขึ้น GAS ผ่าน GET (fields แยกทีละตัว — GAS สร้าง json_full เอง)
 async function docPushSingleToGas(docObj) {
     const gasUrl = getGasDbUrl();
     if (!gasUrl) return;
     try {
-        // ส่ง field แยกทีละตัว — GAS สร้าง json_full เองฝั่ง server
-        // ไม่ส่ง JSON ยาวๆ เพื่อหลีกเลี่ยงปัญหา URL limit / encoding
         const params = new URLSearchParams({
-            action:     'addDoc',
-            id:         docObj.id        || '',
-            number:     docObj.number    || '',
-            subject:    docObj.subject   || '',
-            category:   docObj.category  || '',
-            sig1Name:   docObj.sig1Name  || '',
-            sig1Date:   docObj.sig1Date  || '',
-            sig2Name:   docObj.sig2Name  || '',
-            sig2Date:   docObj.sig2Date  || '',
-            sig2Show:   String(docObj.sig2Show !== false),
-            sig3Name:   docObj.sig3Name  || '',
-            sig3Date:   docObj.sig3Date  || '',
-            status:     docObj.status    || 'draft',
-            body:       (docObj.body     || '').substring(0, 800),
-            updatedAt:  docObj.updatedAt || '',
-            createdAt:  docObj.createdAt || '',
-            createdBy:  docObj.createdBy || ''
+            action:    'addDoc',
+            id:        docObj.id        || '',
+            number:    docObj.number    || '',
+            subject:   docObj.subject   || '',
+            category:  docObj.category  || '',
+            sig1Name:  docObj.sig1Name  || '',
+            sig1Date:  docObj.sig1Date  || '',
+            sig2Name:  docObj.sig2Name  || '',
+            sig2Date:  docObj.sig2Date  || '',
+            sig2Show:  String(docObj.sig2Show !== false),
+            sig3Name:  docObj.sig3Name  || '',
+            sig3Date:  docObj.sig3Date  || '',
+            status:    docObj.status    || 'draft',
+            body:      (docObj.body     || '').substring(0, 500),
+            updatedAt: docObj.updatedAt || '',
+            createdAt: docObj.createdAt || '',
+            createdBy: docObj.createdBy || ''
         });
-        const fullUrl = gasUrl + '?' + params.toString();
-        await fetch(fullUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
-    } catch(e) {
-        console.warn('docPushSingleToGas error:', e);
-    }
+        await fetch(gasUrl + '?' + params.toString(), {
+            method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors'
+        });
+    } catch(e) { console.warn('docPushSingleToGas:', e.message); }
 }
 
 // ── sync wrappers ที่ใช้ cache ──
 function docGetAll() { return _docCache || []; }
 function docSaveAll(docs) { _docCache = docs; docSaveAllAsync(docs); }
 
-// ── โหลดข้อมูลและ migrate เมื่อเปิดหน้า ──────────────────────────────────────
+// ── โหลดข้อมูลเมื่อเปิดหน้า ──────────────────────────────────────────────────
 async function docInitSharedStorage() {
     const syncBadge = document.getElementById('doc-sync-status');
     if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#6366f1;font-weight:600;">⏳ กำลังโหลด...</span>';
 
-    // snapshot localStorage ก่อน
-    let localSnapshot = [];
-    try { localSnapshot = JSON.parse(localStorage.getItem(DOC_KEY) || '[]'); } catch(e) {}
-
-    // โหลดจาก GAS Sheet (source of truth)
+    // โหลดจาก GAS ก่อน ถ้า GAS ว่างหรือ columns ผิด ใช้ localStorage
     await docGetAllAsync();
 
-    const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
-
-    // ── CRITICAL MIGRATE: ถ้า GAS ว่าง แต่ localStorage มีข้อมูล → push ทีละ doc ──
-    if (!_docGasHasData && localSnapshot.length > 0 && hasGasUrl) {
+    // migrate: ถ้า GAS ไม่ได้ข้อมูล แต่ localStorage มี → push ขึ้น GAS ทีละ doc
+    if (!_docGasHasData && _docCache && _docCache.length > 0 && getGasDbUrl()) {
         if (syncBadge) syncBadge.innerHTML = '<span style="font-size:.7rem;color:#d97706;font-weight:600;">📤 กำลัง migrate...</span>';
-        _docCache = localSnapshot;
-        localStorage.setItem(DOC_KEY, JSON.stringify(localSnapshot));
-
-        // push ทีละ doc ผ่าน addDoc (ไม่มีปัญหา URL ยาว)
-        for (const doc of localSnapshot) {
+        for (const doc of _docCache) {
             await docPushSingleToGas(doc);
-            await new Promise(r => setTimeout(r, 200)); // หน่วงเล็กน้อย ไม่ให้ GAS throttle
+            await new Promise(r => setTimeout(r, 150));
         }
-        // sync batch ด้วยอีกที
-        docSyncToSheet(localSnapshot, true);
-        showToast('📤 migrate ' + localSnapshot.length + ' เอกสารขึ้น GAS เรียบร้อย — ทุก account เห็นร่วมกันแล้ว', 'success');
+        showToast('📤 migrate ' + _docCache.length + ' เอกสารขึ้น GAS เรียบร้อย', 'success');
     }
 
-    if (syncBadge) setTimeout(() => { if(syncBadge) syncBadge.innerHTML = ''; }, 3000);
-
+    if (syncBadge) setTimeout(() => { if (syncBadge) syncBadge.innerHTML = ''; }, 3000);
     docRenderList();
     docUpdateGasBadge();
     const inp = document.getElementById('doc-gas-url-input');
     if (inp) inp.value = docGetGasUrl();
     const panel = document.getElementById('doc-gas-panel');
+    const hasGasUrl = !!getGasDbUrl() || !!docGetGasUrl();
     if (panel && !hasGasUrl) panel.style.display = 'block';
 }
 
@@ -11719,11 +11651,11 @@ function docGetBEYear() {
     return new Date().getFullYear() + 543;
 }
 
-// ── สร้างเลขเอกสารถัดไป (ITS XXXX/YYYY) — รันต่อจาก global max เสมอ ────────
+// ── สร้างเลขเอกสารถัดไป (ITS XXXX/YYYY) ────────────────────────────────────
 function docNextNumber() {
     const docs = docGetAll();
     const year  = docGetBEYear();
-    // หาเลขสูงสุดจากทุก doc ทุก account (global)
+    // หาเลขสูงสุดที่มีอยู่ในปีนี้
     let maxSeq = 1000;
     docs.forEach(d => {
         const m = (d.number || '').match(/ITS\s*(\d+)\//);
@@ -11732,7 +11664,7 @@ function docNextNumber() {
             if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
         }
     });
-    return { seq: maxSeq + 1, year, lastSeq: maxSeq };
+    return { seq: maxSeq + 1, year };
 }
 
 // ── อัปเดต hidden doc-number เมื่อ seq เปลี่ยน ──────────────────────────────
@@ -11790,16 +11722,10 @@ function docNewDocument() {
     });
     document.getElementById('doc-category').value = 'ซื้อใหม่';
 
-    // auto-generate doc number — บังคับรันต่อจาก global max เสมอ
+    // auto-generate doc number
     const { seq, year } = docNextNumber();
     const seqEl = document.getElementById('doc-number-seq');
-    if (seqEl) {
-        seqEl.value = seq;
-        seqEl.readOnly = true; // ล็อคไม่ให้แก้
-        seqEl.style.background = '#f1f5f9';
-        seqEl.style.color = '#64748b';
-        seqEl.title = 'เลขเอกสารถูกกำหนดอัตโนมัติ';
-    }
+    if (seqEl) seqEl.value = seq;
     const yearEl = document.getElementById('doc-number-year');
     if (yearEl) yearEl.textContent = `/ ${year}`;
     const numEl = document.getElementById('doc-number');
@@ -11816,17 +11742,12 @@ function docEditDocument(id) {
     if (!doc) return;
     _docEditId = id;
 
-    // parse doc number back to seq + year — ล็อคไม่ให้แก้เลข
+    // parse doc number back to seq + year
     const m = (doc.number || '').match(/ITS\s*(\d+)\/(\d+)/);
     const seqEl  = document.getElementById('doc-number-seq');
     const yearEl = document.getElementById('doc-number-year');
     if (m) {
-        if (seqEl) {
-            seqEl.value    = m[1];
-            seqEl.readOnly = true;
-            seqEl.style.background = '#f1f5f9';
-            seqEl.style.color = '#64748b';
-        }
+        if (seqEl)  seqEl.value       = m[1];
         if (yearEl) yearEl.textContent = `/ ${m[2]}`;
     } else {
         if (seqEl)  seqEl.value       = '';
@@ -11881,38 +11802,9 @@ async function docSave(status) {
     }
     const docs = docGetAll();
     const now = new Date().toISOString();
-    const currentUser = sessionStorage.getItem('it_current_user') || '';
-    if (!_docEditId) {
-        // ตรวจเลขซ้ำ
-        const dupNum = docs.find(d => d.number === number);
-        if (dupNum) {
-            showToast(`⚠️ เลขที่ "${number}" ถูกใช้ไปแล้ว — ระบบจะใช้เลขถัดไปแทน`, 'error');
-            return;
-        }
-        // ตรวจว่าเลขน้อยกว่า global max หรือไม่
-        const mNum = number.match(/ITS\s*(\d+)\//);
-        if (mNum) {
-            let globalMax = 1000;
-            docs.forEach(d => {
-                const mx = (d.number||'').match(/ITS\s*(\d+)\//);
-                if (mx && parseInt(mx[1]) > globalMax) globalMax = parseInt(mx[1]);
-            });
-            if (parseInt(mNum[1]) <= globalMax) {
-                showToast(`⚠️ เลขที่เอกสารต้องมากกว่า ITS ${globalMax}/${docGetBEYear()} — กรุณาสร้างใหม่`, 'error');
-                return;
-            }
-        }
-    } else {
-        const existing = docs.find(d => d.id === _docEditId);
-        if (existing && existing.createdBy && existing.createdBy !== currentUser) {
-            showToast('⚠️ ไม่มีสิทธิ์แก้ไขเอกสารของผู้อื่น', 'error');
-            return;
-        }
-    }
     const docData = {
         id: _docEditId || ('DOC-' + Date.now()),
         number, status,
-        createdBy: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdBy || currentUser) : currentUser,
         category:      document.getElementById('doc-category').value,
         subject,
         body:          (() => {
@@ -11950,21 +11842,18 @@ async function docSave(status) {
 async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
 
-    // 1. ลบจาก GAS Sheet ก่อน (GET — GAS อ่าน e.parameter ได้จาก GET เสมอ)
+    // 1. ลบออกจาก cache + localStorage ทันที
+    _docCache = (_docCache || []).filter(d => d.id !== id);
+    try { localStorage.setItem(DOC_KEY, JSON.stringify(_docCache)); } catch(e) {}
+
+    // 2. ลบออกจาก GAS Sheet ผ่าน GET
     const gasUrl = getGasDbUrl();
     if (gasUrl) {
         try {
-            const delUrl = gasUrl + '?' + new URLSearchParams({ action: 'deleteDoc', docId: id }).toString();
-            await fetch(delUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
-        } catch(e) {
-            console.warn('deleteDoc GAS error:', e);
-        }
+            await fetch(gasUrl + '?' + new URLSearchParams({ action: 'deleteDoc', docId: id }).toString(),
+                { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        } catch(e) { console.warn('deleteDoc GAS:', e.message); }
     }
-
-    // 2. ลบจาก cache + localStorage
-    const docs = _docCache ? _docCache.filter(d => d.id !== id) : [];
-    _docCache = docs;
-    try { localStorage.setItem(DOC_KEY, JSON.stringify(docs)); } catch(e) {}
 
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
@@ -11973,117 +11862,44 @@ async function docDelete(id) {
 function docRenderList() {
     const tbody = document.getElementById('doc-list-tbody');
     if (!tbody) return;
-    const search  = (document.getElementById('doc-search')?.value || '').toLowerCase();
-    const catF    = document.getElementById('doc-filter-cat')?.value || '';
-    const statF   = document.getElementById('doc-filter-status')?.value || '';
-    const meUser  = sessionStorage.getItem('it_current_user') || '';
-    const allDocs = docGetAll();
-
-    // ── อัปเดต: เลขเอกสารล่าสุด + เลขถัดไป (จากทุก doc ทุก account) ──
-    let maxSeq = 0, lastNum = '—';
-    allDocs.forEach(d => {
-        const m = (d.number || '').match(/ITS\s*(\d+)\//);
-        if (m) {
-            const s = parseInt(m[1]);
-            if (!isNaN(s) && s > maxSeq) { maxSeq = s; lastNum = d.number; }
-        }
-    });
-    const lastEl = document.getElementById('doc-last-number-display');
-    const nextEl = document.getElementById('doc-next-number-display');
-    if (lastEl) lastEl.textContent = maxSeq > 0 ? lastNum : '—';
-    if (nextEl) nextEl.textContent = `ITS ${maxSeq + 1}/${docGetBEYear()}`;
-
-    let docs = allDocs;
+    const search = (document.getElementById('doc-search')?.value || '').toLowerCase();
+    const catF   = document.getElementById('doc-filter-cat')?.value || '';
+    const statF  = document.getElementById('doc-filter-status')?.value || '';
+    let docs = docGetAll();
     if (search) docs = docs.filter(d =>
-        (d.number||'').toLowerCase().includes(search) ||
-        (d.subject||'').toLowerCase().includes(search)
+        d.number.toLowerCase().includes(search) ||
+        d.subject.toLowerCase().includes(search)
     );
     if (catF)  docs = docs.filter(d => d.category === catF);
     if (statF) docs = docs.filter(d => d.status === statF);
 
     if (!docs.length) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
-        docRenderPagination(0, 0, 0);
         return;
     }
-
-    // ── Pagination: แสดงหน้าละ 10 รายการล่าสุด ──
-    const PAGE_SIZE = 10;
-    const totalDocs = docs.length;
-    const totalPages = Math.ceil(totalDocs / PAGE_SIZE);
-    if (typeof _docPage === 'undefined') window._docPage = 0;
-    if (window._docPage >= totalPages) window._docPage = totalPages - 1;
-    if (window._docPage < 0) window._docPage = 0;
-    const startIdx = window._docPage * PAGE_SIZE;
-    const pageDocs = docs.slice(startIdx, startIdx + PAGE_SIZE);
-
-    docRenderPagination(window._docPage, totalPages, totalDocs);
-
-    tbody.innerHTML = pageDocs.map((d,i) => {
-        const isOwner = !d.createdBy || d.createdBy === meUser; // เจ้าของเอกสาร
+    tbody.innerHTML = docs.map((d,i) => {
         const statusHtml = d.status === 'final'
             ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
             : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>แบบร่าง</span>`;
-        const rowBg  = i % 2 === 0 ? 'white' : '#fafbff';
+        const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
-
-        // คอลัมน์ จัดการ: เจ้าของเห็นปุ่มครบ, คนอื่นเห็นแค่ "ดู"
-        const actionCol = isOwner
-            ? `<div style="display:flex;justify-content:center;gap:5px;">
-                <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
-                <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
-                <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
-               </div>`
-            : `<span style="font-size:.72rem;color:#94a3b8;">— ดูอย่างเดียว —</span>`;
-
-        return `<tr style="background:${rowBg};transition:.12s;"
+        return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
                     onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='${rowBg}'">
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number||'-'}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject||''}">${d.subject||'-'}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category||'-'}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name||'-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name || '-'}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
-                ${actionCol}
+                <div style="display:flex;justify-content:center;gap:5px;">
+                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
+                    <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
+                    <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
+                </div>
             </td>
         </tr>`;
     }).join('');
-}
-
-// ── Pagination UI ────────────────────────────────────────────────────────────
-function docRenderPagination(page, totalPages, totalDocs) {
-    let pg = document.getElementById('doc-pagination');
-    if (!pg) {
-        // สร้าง pagination bar ใต้ตาราง
-        const tableWrap = document.querySelector('#doc-view-list .doc-table-wrap') ||
-                          document.getElementById('doc-list-tbody')?.closest('div[style*="border-radius:14px"]');
-        if (tableWrap) {
-            pg = document.createElement('div');
-            pg.id = 'doc-pagination';
-            pg.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid #f1f5f9;background:#fafbff;border-radius:0 0 14px 14px;';
-            tableWrap.appendChild(pg);
-        }
-    }
-    if (!pg) return;
-    if (totalPages <= 1) { pg.style.display = 'none'; return; }
-    pg.style.display = 'flex';
-    const from = page * 10 + 1;
-    const to   = Math.min((page + 1) * 10, totalDocs);
-    pg.innerHTML = `
-        <span style="font-size:.78rem;color:#64748b;">แสดง ${from}–${to} จาก ${totalDocs} รายการ</span>
-        <div style="display:flex;gap:4px;align-items:center;">
-            <button onclick="docGoPage(0)" ${page===0?'disabled':''} style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.75rem;color:#475569;${page===0?'opacity:.4;cursor:default;':''}">«</button>
-            <button onclick="docGoPage(${page-1})" ${page===0?'disabled':''} style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.78rem;color:#475569;${page===0?'opacity:.4;cursor:default;':''}">‹ ก่อนหน้า</button>
-            <span style="font-size:.78rem;font-weight:700;color:#2C4A52;padding:4px 10px;background:#E8F2F4;border-radius:6px;">หน้า ${page+1}/${totalPages}</span>
-            <button onclick="docGoPage(${page+1})" ${page===totalPages-1?'disabled':''} style="padding:4px 10px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.78rem;color:#475569;${page===totalPages-1?'opacity:.4;cursor:default;':''}">ถัดไป ›</button>
-            <button onclick="docGoPage(${totalPages-1})" ${page===totalPages-1?'disabled':''} style="padding:4px 8px;border:1.5px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:.75rem;color:#475569;${page===totalPages-1?'opacity:.4;cursor:default;':''}">»</button>
-        </div>`;
-}
-
-function docGoPage(p) {
-    window._docPage = p;
-    docRenderList();
 }
 
 function docFormatDate(dateStr) {
