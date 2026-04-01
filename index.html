@@ -3320,6 +3320,7 @@
                 <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:12px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 4px rgba(0,0,0,.05);">
                     <div style="position:relative;flex:1;min-width:200px;">
                         <svg style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <div id="doc-my-limit" style="font-size:.78rem;font-weight:700;color:#64748b;white-space:nowrap;padding:0 4px;"></div>
                         <input type="text" id="doc-search" placeholder="ค้นหาเอกสาร..." oninput="docRenderList()"
                             style="width:100%;padding:8px 12px 8px 34px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sarabun',sans-serif;font-size:.85rem;">
                     </div>
@@ -7154,32 +7155,51 @@ function doGet(e) {
       }
     }
 
-    // addDoc — เพิ่ม/อัปเดต doc เดียว (ส่ง JSON ผ่าน POST body)
+    // addDoc — รับ field แยกทีละตัว (ไม่รับ JSON ยาวๆ เพื่อหลีกเลี่ยง URL limit)
     if (action === 'addDoc') {
       try {
-        var docJson = e.parameter.docJson || '';
-        var docObj  = parseParam(docJson, null);
-        if (!docObj || !docObj.id) return jsonOut({ status: 'error', message: 'no doc id' });
+        var p = e.parameter;
+        var docId = p.id || p.docId || '';
+        if (!docId) return jsonOut({ status: 'error', message: 'no doc id' });
+        // สร้าง docObj จาก parameters ทีละ field
+        var docObj = {
+          id:        docId,
+          number:    p.number    || '',
+          subject:   p.subject   || '',
+          category:  p.category  || '',
+          sig1Name:  p.sig1Name  || '',
+          sig1Date:  p.sig1Date  || '',
+          sig2Name:  p.sig2Name  || '',
+          sig2Date:  p.sig2Date  || '',
+          sig2Show:  p.sig2Show !== 'false',
+          sig3Name:  p.sig3Name  || '',
+          sig3Date:  p.sig3Date  || '',
+          status:    p.status    || 'draft',
+          body:      p.body      || '',
+          createdBy: p.createdBy || '',
+          updatedAt: p.updatedAt || new Date().toISOString(),
+          createdAt: p.createdAt || new Date().toISOString()
+        };
         var ds = getDocSheet();
         var lastRow = ds.getLastRow();
         var foundRow = -1;
         if (lastRow > 1) {
           var ids = ds.getRange(2, 1, lastRow - 1, 1).getValues();
           for (var i = 0; i < ids.length; i++) {
-            if (ids[i][0] === docObj.id) { foundRow = i + 2; break; }
+            if (ids[i][0] === docId) { foundRow = i + 2; break; }
           }
         }
         var rowData = [
-          docObj.id || '',
-          docObj.number || '',
-          docObj.subject || '',
-          docObj.category || '',
-          docObj.sig1Name || '',
+          docObj.id,
+          docObj.number,
+          docObj.subject,
+          docObj.category,
+          docObj.sig1Name,
           (docObj.status === 'final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
-          docObj.updatedAt || new Date().toISOString(),
-          docObj.createdAt || new Date().toISOString(),
+          docObj.updatedAt,
+          docObj.createdAt,
           (docObj.body || '').substring(0, 500),
-          JSON.stringify(docObj)
+          JSON.stringify(docObj)   // GAS สร้าง json_full เองจาก fields ข้างบน
         ];
         if (foundRow > 0) {
           ds.getRange(foundRow, 1, 1, 10).setValues([rowData]);
@@ -11581,32 +11601,29 @@ async function docPushSingleToGas(docObj) {
     const gasUrl = getGasDbUrl();
     if (!gasUrl) return;
     try {
-        const docJson = JSON.stringify(docObj);
-        // ส่งผ่าน GET — GAS อ่าน e.parameter ได้จาก GET เสมอ
-        const params = new URLSearchParams({ action: 'addDoc', docJson });
+        // ส่ง field แยกทีละตัว — GAS สร้าง json_full เองฝั่ง server
+        // ไม่ส่ง JSON ยาวๆ เพื่อหลีกเลี่ยงปัญหา URL limit / encoding
+        const params = new URLSearchParams({
+            action:     'addDoc',
+            id:         docObj.id        || '',
+            number:     docObj.number    || '',
+            subject:    docObj.subject   || '',
+            category:   docObj.category  || '',
+            sig1Name:   docObj.sig1Name  || '',
+            sig1Date:   docObj.sig1Date  || '',
+            sig2Name:   docObj.sig2Name  || '',
+            sig2Date:   docObj.sig2Date  || '',
+            sig2Show:   String(docObj.sig2Show !== false),
+            sig3Name:   docObj.sig3Name  || '',
+            sig3Date:   docObj.sig3Date  || '',
+            status:     docObj.status    || 'draft',
+            body:       (docObj.body     || '').substring(0, 800),
+            updatedAt:  docObj.updatedAt || '',
+            createdAt:  docObj.createdAt || '',
+            createdBy:  docObj.createdBy || ''
+        });
         const fullUrl = gasUrl + '?' + params.toString();
-
-        if (fullUrl.length <= 7500) {
-            // URL สั้นพอ → ใช้ GET ปกติ (GAS ตอบกลับได้)
-            await fetch(fullUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
-        } else {
-            // URL ยาวเกิน → ส่งทีละ field แยก (ไม่ส่ง json_full ใหญ่)
-            // แยกส่งเฉพาะ field หลักที่จำเป็น แล้วค่อย syncDocs batch ทีหลัง
-            const safeParams = new URLSearchParams({
-                action: 'addDoc',
-                docJson: JSON.stringify({
-                    id: docObj.id, number: docObj.number,
-                    subject: docObj.subject, category: docObj.category,
-                    sig1Name: docObj.sig1Name, sig1Date: docObj.sig1Date,
-                    sig2Name: docObj.sig2Name, sig2Date: docObj.sig2Date, sig2Show: docObj.sig2Show,
-                    sig3Name: docObj.sig3Name, sig3Date: docObj.sig3Date,
-                    status: docObj.status, updatedAt: docObj.updatedAt, createdAt: docObj.createdAt,
-                    body: (docObj.body || '').substring(0, 800)
-                })
-            });
-            const safeUrl = gasUrl + '?' + safeParams.toString();
-            await fetch(safeUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
-        }
+        await fetch(fullUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
     } catch(e) {
         console.warn('docPushSingleToGas error:', e);
     }
@@ -11740,6 +11757,14 @@ function docToggleSig2() {
 }
 
 function docNewDocument() {
+    // ตรวจ limit 5 เอกสารต่อ account
+    const meUser = sessionStorage.getItem('it_current_user') || '';
+    const myDocs = docGetAll().filter(d => (d.createdBy || '') === meUser);
+    if (myDocs.length >= 5) {
+        showToast('⚠️ ครบ 5 เอกสารแล้ว — กรุณาลบเอกสารเก่าก่อนสร้างใหม่', 'error');
+        return;
+    }
+
     _docEditId = null;
     // clear text fields
     ['doc-subject','doc-subject-suffix','doc-body','doc-body-p1','doc-body-p2'].forEach(id => {
@@ -11828,9 +11853,26 @@ async function docSave(status) {
     }
     const docs = docGetAll();
     const now = new Date().toISOString();
+    const currentUser = sessionStorage.getItem('it_current_user') || '';
+    // ตรวจสิทธิ์: account อื่น (ไม่ใช่ผู้สร้าง) สร้างใหม่ไม่ได้
+    if (!_docEditId) {
+        const myDocs = docs.filter(d => d.createdBy === currentUser);
+        if (myDocs.length >= 5) {
+            showToast('⚠️ ครบ 5 เอกสารแล้ว — ลบเอกสารเก่าก่อนสร้างใหม่', 'error');
+            return;
+        }
+    } else {
+        // แก้ไข: ต้องเป็นผู้สร้างเท่านั้น
+        const existing = docs.find(d => d.id === _docEditId);
+        if (existing && existing.createdBy && existing.createdBy !== currentUser) {
+            showToast('⚠️ ไม่มีสิทธิ์แก้ไขเอกสารของผู้อื่น', 'error');
+            return;
+        }
+    }
     const docData = {
         id: _docEditId || ('DOC-' + Date.now()),
         number, status,
+        createdBy: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdBy || currentUser) : currentUser,
         category:      document.getElementById('doc-category').value,
         subject,
         body:          (() => {
@@ -11885,13 +11927,14 @@ async function docDelete(id) {
 function docRenderList() {
     const tbody = document.getElementById('doc-list-tbody');
     if (!tbody) return;
-    const search = (document.getElementById('doc-search')?.value || '').toLowerCase();
-    const catF   = document.getElementById('doc-filter-cat')?.value || '';
-    const statF  = document.getElementById('doc-filter-status')?.value || '';
+    const search  = (document.getElementById('doc-search')?.value || '').toLowerCase();
+    const catF    = document.getElementById('doc-filter-cat')?.value || '';
+    const statF   = document.getElementById('doc-filter-status')?.value || '';
+    const meUser  = sessionStorage.getItem('it_current_user') || '';
     let docs = docGetAll();
     if (search) docs = docs.filter(d =>
-        d.number.toLowerCase().includes(search) ||
-        d.subject.toLowerCase().includes(search)
+        (d.number||'').toLowerCase().includes(search) ||
+        (d.subject||'').toLowerCase().includes(search)
     );
     if (catF)  docs = docs.filter(d => d.category === catF);
     if (statF) docs = docs.filter(d => d.status === statF);
@@ -11900,26 +11943,42 @@ function docRenderList() {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
         return;
     }
+
+    // แสดงจำนวนเอกสารของ user นี้ (limit 5)
+    const myCount = docGetAll().filter(d => (d.createdBy || '') === meUser).length;
+    const limitBar = document.getElementById('doc-my-limit');
+    if (limitBar) {
+        limitBar.textContent = `เอกสารของฉัน: ${myCount}/5`;
+        limitBar.style.color = myCount >= 5 ? '#dc2626' : '#64748b';
+    }
+
     tbody.innerHTML = docs.map((d,i) => {
+        const isOwner = !d.createdBy || d.createdBy === meUser; // เจ้าของเอกสาร
         const statusHtml = d.status === 'final'
             ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
             : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>แบบร่าง</span>`;
-        const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
+        const rowBg  = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
-        return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
+
+        // คอลัมน์ จัดการ: เจ้าของเห็นปุ่มครบ, คนอื่นเห็นแค่ "ดู"
+        const actionCol = isOwner
+            ? `<div style="display:flex;justify-content:center;gap:5px;">
+                <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
+                <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
+                <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
+               </div>`
+            : `<span style="font-size:.72rem;color:#94a3b8;">— ดูอย่างเดียว —</span>`;
+
+        return `<tr style="background:${rowBg};transition:.12s;"
                     onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='${rowBg}'">
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name || '-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number||'-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject||''}">${d.subject||'-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category||'-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name||'-'}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
-                <div style="display:flex;justify-content:center;gap:5px;">
-                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
-                    <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
-                    <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
-                </div>
+                ${actionCol}
             </td>
         </tr>`;
     }).join('');
