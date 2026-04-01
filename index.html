@@ -6892,7 +6892,7 @@ function getDocSheet() {
   var ds = ss.getSheetByName('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
   if (!ds) {
     ds = ss.insertSheet('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
-    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
+    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
   }
   return ds;
 }
@@ -7132,25 +7132,38 @@ function doGet(e) {
     // ทุก account เห็นร่วมกันได้ทันที ไม่ผ่าน ScriptProperties
     // ══════════════════════════════════════════════════════════
 
-    // getDocs — อ่านจาก Sheet (json_full) + fallback ScriptProperties
+    // getDocs — อ่านจาก Sheet columns โดยตรง (ไม่ง้อ json_full)
+    // columns: 0=id, 1=number, 2=subject, 3=category, 4=sig1Name,
+    //          5=status, 6=updatedAt, 7=createdAt, 8=body, 9=json_full, 10=createdBy
     if (action === 'getDocs') {
       try {
         var ds = getDocSheet();
         var lastRow = ds.getLastRow();
         if (lastRow >= 2) {
-          var rows = ds.getRange(2, 1, lastRow - 1, 10).getValues();
-          var validRows = rows.filter(function(r){ return r[0] && r[0] !== ''; });
+          var rows = ds.getRange(2, 1, lastRow - 1, 11).getValues();
+          var validRows = rows.filter(function(r){ return r[0] && r[0].toString().trim() !== ''; });
           if (validRows.length > 0) {
             var docs = validRows.map(function(r){
+              // ลอง parse json_full ก่อน (ข้อมูลครบที่สุด)
               var jsonFull = r[9] ? r[9].toString().trim() : '';
               if (jsonFull && jsonFull.charAt(0) === '{') {
-                try { var parsed = JSON.parse(jsonFull); if (parsed && parsed.id) return parsed; } catch(e2){}
+                try {
+                  var parsed = JSON.parse(jsonFull);
+                  if (parsed && parsed.id) return parsed;
+                } catch(e2){}
               }
-              // fallback: reconstruct from columns
+              // fallback: อ่านจาก columns โดยตรง (columns ถูกเสมอ)
               return {
-                id: r[0]+'', number: r[1]+'', subject: r[2]+'', category: r[3]+'',
-                sig1Name: r[4]+'', status: (r[5]+'') === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
-                updatedAt: r[6]+'', createdAt: r[7]+'', body: r[8]+''
+                id:        r[0].toString(),
+                number:    r[1].toString(),
+                subject:   r[2].toString(),
+                category:  r[3].toString(),
+                sig1Name:  r[4].toString(),
+                status:    r[5].toString() === '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' ? 'final' : 'draft',
+                updatedAt: r[6] ? (r[6] instanceof Date ? r[6].toISOString() : r[6].toString()) : '',
+                createdAt: r[7] ? (r[7] instanceof Date ? r[7].toISOString() : r[7].toString()) : '',
+                body:      r[8].toString(),
+                createdBy: r[10] ? r[10].toString() : ''
               };
             });
             return jsonOut({ status: 'ok', docs: docs });
@@ -7205,14 +7218,15 @@ function doGet(e) {
           docObj.subject,
           docObj.category,
           docObj.sig1Name,
-          (docObj.status === 'final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
+          (docObj.status === 'final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e27',
           docObj.updatedAt,
           docObj.createdAt,
           (docObj.body || '').substring(0, 500),
-          JSON.stringify(docObj)   // GAS สร้าง json_full เองจาก fields ข้างบน
+          JSON.stringify(docObj),
+          docObj.createdBy || ''
         ];
         if (foundRow > 0) {
-          ds.getRange(foundRow, 1, 1, 10).setValues([rowData]);
+          ds.getRange(foundRow, 1, 1, 11).setValues([rowData]);
         } else {
           ds.appendRow(rowData);
         }
@@ -7246,7 +7260,7 @@ function doGet(e) {
         var docs = parseParam(e.parameter.docs, []);
         var ds = getDocSheet();
         ds.clearContents();
-        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
+        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
         docs.forEach(function(d) {
           ds.appendRow([
             d.id||'', d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
@@ -11600,7 +11614,8 @@ async function docSaveAllAsync(docs) {
     _docCache = docs;
     try {
         localStorage.setItem(DOC_KEY, JSON.stringify(docs));
-        docSyncToSheet(docs, true); // sync ขึ้น GAS (เขียนลง Sheet โดยตรง)
+        // ไม่ใช้ syncDocs batch (URL ยาวเกิน) — ใช้ addDoc ทีละตัวแทน
+        // การ push แต่ละ doc ทำใน docSave() → docPushSingleToGas()
     } catch (e) {
         console.error('docSaveAll error:', e);
     }
@@ -11934,17 +11949,23 @@ async function docSave(status) {
 
 async function docDelete(id) {
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
-    const docs = await docGetAllAsync();
-    await docSaveAllAsync(docs.filter(d => d.id !== id));
-    // แจ้ง GAS ลบ doc นี้ออกจาก Sheet โดยตรง
+
+    // 1. ลบจาก GAS Sheet ก่อน (GET — GAS อ่าน e.parameter ได้จาก GET เสมอ)
     const gasUrl = getGasDbUrl();
     if (gasUrl) {
         try {
-            const body = new URLSearchParams({ action: 'deleteDoc', docId: id });
-            fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: body.toString(),
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-        } catch(e) {}
+            const delUrl = gasUrl + '?' + new URLSearchParams({ action: 'deleteDoc', docId: id }).toString();
+            await fetch(delUrl, { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        } catch(e) {
+            console.warn('deleteDoc GAS error:', e);
+        }
     }
+
+    // 2. ลบจาก cache + localStorage
+    const docs = _docCache ? _docCache.filter(d => d.id !== id) : [];
+    _docCache = docs;
+    try { localStorage.setItem(DOC_KEY, JSON.stringify(docs)); } catch(e) {}
+
     docRenderList();
     showToast('🗑️ ลบเอกสารแล้ว', '');
 }
