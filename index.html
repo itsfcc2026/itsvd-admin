@@ -11740,6 +11740,18 @@ function docEditDocument(id) {
     const docs = docGetAll();
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
+
+    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือผู้รับเรื่อง (sig1Name) เท่านั้น ──
+    const _cu = sessionStorage.getItem('it_current_user') || '';
+    if (_cu !== ADMIN_USER) {
+        // หา staff name ของ current user
+        const _myStaff = adminStaff.find(s => s.username === _cu);
+        const _myName  = _myStaff ? _myStaff.name : '';
+        if (!_myName || doc.sig1Name !== _myName) {
+            showToast('⛔ คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ — เฉพาะผู้รับเรื่องและ Admin เท่านั้น', 'error');
+            return;
+        }
+    }
     _docEditId = id;
 
     // parse doc number back to seq + year
@@ -11824,6 +11836,7 @@ async function docSave(status) {
         sig3Date:      document.getElementById('sig3-date').value,
         updatedAt: now,
         createdAt: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdAt || now) : now,
+        createdBy: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdBy || sessionStorage.getItem('it_current_user') || '') : (sessionStorage.getItem('it_current_user') || ''),
     };
     if (_docEditId) {
         const idx = docs.findIndex(d => d.id === _docEditId);
@@ -11840,6 +11853,17 @@ async function docSave(status) {
 }
 
 async function docDelete(id) {
+    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือผู้รับเรื่อง (sig1Name) เท่านั้น ──
+    const _cu2 = sessionStorage.getItem('it_current_user') || '';
+    if (_cu2 !== ADMIN_USER) {
+        const _docToDel = docGetAll().find(d => d.id === id);
+        const _myStaff2 = adminStaff.find(s => s.username === _cu2);
+        const _myName2  = _myStaff2 ? _myStaff2.name : '';
+        if (!_docToDel || !_myName2 || _docToDel.sig1Name !== _myName2) {
+            showToast('⛔ คุณไม่มีสิทธิ์ลบเอกสารนี้ — เฉพาะผู้รับเรื่องและ Admin เท่านั้น', 'error');
+            return;
+        }
+    }
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
 
     // 1. ลบออกจาก cache + localStorage ทันที
@@ -11877,25 +11901,49 @@ function docRenderList() {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
         return;
     }
+
+    // ── ตรวจสิทธิ์ current user ──
+    const _cu = sessionStorage.getItem('it_current_user') || '';
+    const _isAdmin = (_cu === ADMIN_USER);
+    const _myStaff = adminStaff.find(s => s.username === _cu);
+    const _myName  = _myStaff ? (_myStaff.name || '') : '';
+
     tbody.innerHTML = docs.map((d,i) => {
         const statusHtml = d.status === 'final'
             ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
             : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>แบบร่าง</span>`;
         const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+
+        // ── ตรวจสิทธิ์แต่ละ doc: adminit หรือ ผู้รับเรื่อง (sig1Name) เท่านั้น ──
+        const _canEdit = _isAdmin || (_myName && d.sig1Name === _myName);
+
+        // sig1Name + badge ถ้าเป็นเจ้าของ
+        const sig1Html = d.sig1Name
+            ? `<span style="font-size:.8rem;color:#1e293b;">${d.sig1Name}</span>`
+              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">เอกสารของคุณ</span>` : '')
+            : '<span style="color:#94a3b8;">-</span>';
+
+        const editBtnHtml = _canEdit
+            ? `<button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>`
+            : '';
+        const delBtnHtml = _canEdit
+            ? `<button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>`
+            : '';
+
         return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
                     onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='${rowBg}'">
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name || '-'}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">${sig1Html}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
                 <div style="display:flex;justify-content:center;gap:5px;">
                     <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
-                    <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
-                    <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
+                    ${editBtnHtml}
+                    ${delBtnHtml}
                 </div>
             </td>
         </tr>`;
