@@ -3312,6 +3312,7 @@
                             autofocus
                             style="flex:1;min-width:260px;padding:10px 14px;border:2px solid #0284c7;border-radius:10px;font-family:'Sarabun',sans-serif;font-size:.85rem;outline:none;background:#f0f9ff;color:#0c4a6e;" />
                         <button onclick="docSaveGasUrlFromInput()" style="background:#0284c7;border:none;border-radius:10px;padding:10px 20px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:white;white-space:nowrap;">✅ บันทึก</button>
+                        <button onclick="docTestConnection()" style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:10px 16px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;white-space:nowrap;">🔌 ทดสอบ</button>
                         <button onclick="document.getElementById('doc-gas-panel').style.display='none'" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:.85rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#64748b;">ยกเลิก</button>
                     </div>
                 </div>
@@ -4133,12 +4134,23 @@ const ADMIN_SESSION_KEY = 'it_admin_session';
 // ใช้ Google Apps Script เป็น database กลาง sync ทุกเครื่อง
 const GAS_DB_KEY = 'it_gas_db_url';
 
-// ★ วาง GAS URL ของคุณที่นี่ เพื่อให้ทุกเครื่อง (รวมมือถือ) ซิงก์ได้ทันที
-//   โดยไม่ต้องกรอก URL ใหม่ทุกครั้ง
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbytcpCTJ1REBeNEjMkxXLVFKjv36ihaCoOMlSkU_qCDC7EQjmHCG2RM-rpbLOaFyMyP/exec';
+// ★ วาง GAS URL ใหม่ที่นี่หลัง Deploy Code.gs ใหม่ทุกครั้ง
+// URL นี้จะถูกใช้โดยอัตโนมัติในทุกเครื่อง โดยไม่ต้องตั้งค่าแยก
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwboboigSG66jErJcM-bjEaz1t9xfr_mr-uQ1RrGMMbxEd-1fTsfYF6FzfsRa5auw980Q/exec';
+
+// URL เก่าที่ต้อง flush ออก (เพิ่ม URL เก่าที่ไม่มีโค้ดใหม่ลงในนี้)
+const _OBSOLETE_GAS_URLS = [
+  'https://script.google.com/macros/s/AKfycbytcpCTJ1REBeNEjMkxXLVFKjv36ihaCoOMlSkU_qCDC7EQjmHCG2RM-rpbLOaFyMyP/exec'
+];
 
 function getGasDbUrl() {
-    return localStorage.getItem(GAS_DB_KEY) || DEFAULT_GAS_URL;
+    const saved = localStorage.getItem(GAS_DB_KEY) || '';
+    // ถ้า URL ที่บันทึกไว้เป็น URL เก่า → ล้างออก ใช้ DEFAULT_GAS_URL แทน
+    if (saved && _OBSOLETE_GAS_URLS.includes(saved)) {
+        localStorage.removeItem(GAS_DB_KEY);
+        return DEFAULT_GAS_URL;
+    }
+    return saved || DEFAULT_GAS_URL;
 }
 function setGasDbUrl(url) {
     localStorage.setItem(GAS_DB_KEY, url.trim());
@@ -11425,9 +11437,37 @@ function docToggleGasPanel() {
 function docSaveGasUrlFromInput() {
     const inp = document.getElementById('doc-gas-url-input');
     if (!inp) return;
-    docSaveGasUrl(inp.value.trim());
+    const url = inp.value.trim();
+    if (!url) { showToast('⚠️ กรุณากรอก URL ก่อน', 'error'); return; }
+    if (!url.includes('script.google.com')) { showToast('⚠️ URL ไม่ถูกต้อง — ต้องเป็น Google Apps Script URL', 'error'); return; }
+    // บันทึกลงทั้ง 2 key (doc key + main GAS key) เพื่อให้ทุกระบบใช้ร่วมกัน
+    localStorage.setItem(DOC_GAS_KEY, url);
+    setGasDbUrl(url);  // บันทึก GAS_DB_KEY ด้วย
+    docUpdateGasBadge();
     document.getElementById('doc-gas-panel').style.display = 'none';
-    showToast('✅ บันทึก Google Sheet URL เรียบร้อย', 'success');
+    showToast('✅ บันทึก URL เรียบร้อย — กด Sync ตอนนี้ เพื่ออัปโหลดข้อมูลขึ้น Sheet', 'success');
+}
+
+async function docTestConnection() {
+    const inp = document.getElementById('doc-gas-url-input');
+    const url = (inp ? inp.value.trim() : '') || getGasDbUrl();
+    if (!url) { showToast('⚠️ ยังไม่มี URL — กรอก URL ก่อนทดสอบ', 'error'); return; }
+    showToast('⏳ กำลังทดสอบการเชื่อมต่อ...', '');
+    try {
+        const r = await fetch(url + '?action=getDocs', { method: 'GET', redirect: 'follow', cache: 'no-store', mode: 'cors' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const text = await r.text();
+        let json;
+        try { json = JSON.parse(text); } catch(e) { throw new Error('ตอบกลับไม่ใช่ JSON — GAS อาจยังไม่ได้ Deploy หรือ Access ไม่ถูกต้อง'); }
+        if (json && json.status === 'ok') {
+            showToast('✅ เชื่อมต่อสำเร็จ! พบ ' + (json.docs ? json.docs.length : 0) + ' เอกสารใน Google Sheet', 'success');
+        } else {
+            throw new Error(json && json.message ? json.message : 'GAS ตอบกลับผิดปกติ');
+        }
+    } catch(e) {
+        showToast('❌ เชื่อมต่อไม่สำเร็จ: ' + e.message, 'error');
+        console.error('[docTestConnection]', e);
+    }
 }
 
 // ── Doc GAS fetch helper (GET pattern เดียวกับระบบ ticket หลัก) ──────────────
