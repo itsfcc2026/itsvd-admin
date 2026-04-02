@@ -6881,7 +6881,7 @@ function getDocSheet() {
   var ds = ss.getSheetByName('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
   if (!ds) {
     ds = ss.insertSheet('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
-    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
+    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
   }
   return ds;
 }
@@ -7240,14 +7240,15 @@ function doGet(e) {
         var docs = parseParam(e.parameter.docs, []);
         var ds = getDocSheet();
         ds.clearContents();
-        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
+        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
         docs.forEach(function(d) {
           ds.appendRow([
             d.id||'', d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
             (d.status==='final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
             d.updatedAt||'', d.createdAt||'',
             (d.body||'').substring(0,500),
-            JSON.stringify(d)
+            JSON.stringify(d),
+            d.createdBy||''
           ]);
         });
         return jsonOut({ status: 'ok', saved: docs.length });
@@ -11744,13 +11745,12 @@ function docEditDocument(id) {
     const docs = docGetAll();
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
-    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือผู้รับเรื่อง (sig1Name) เท่านั้น ──
+    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือเจ้าของที่สร้างเอกสาร (createdBy) เท่านั้น ──
     const _cu = sessionStorage.getItem('it_current_user') || '';
     if (_cu !== ADMIN_USER) {
-        const _myStaff = adminStaff.find(s => s.username === _cu);
-        const _myName  = _myStaff ? _myStaff.name : '';
-        if (!_myName || doc.sig1Name !== _myName) {
-            showToast('⛔ คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ — เฉพาะผู้รับเรื่องและ Admin เท่านั้น', 'error');
+        const _docOwner = (doc.createdBy || '').trim();
+        if (!_docOwner || _docOwner !== _cu) {
+            showToast('⛔ คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ — เฉพาะเจ้าของผู้สร้างและ Admin เท่านั้น', 'error');
             return;
         }
     }
@@ -11855,14 +11855,13 @@ async function docSave(status) {
 }
 
 async function docDelete(id) {
-    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือผู้รับเรื่อง (sig1Name) เท่านั้น ──
+    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือเจ้าของที่สร้างเอกสาร (createdBy) เท่านั้น ──
     const _cu2 = sessionStorage.getItem('it_current_user') || '';
     if (_cu2 !== ADMIN_USER) {
         const _docToDel = docGetAll().find(d => d.id === id);
-        const _myStaff2 = adminStaff.find(s => s.username === _cu2);
-        const _myName2  = _myStaff2 ? _myStaff2.name : '';
-        if (!_docToDel || !_myName2 || _docToDel.sig1Name !== _myName2) {
-            showToast('⛔ คุณไม่มีสิทธิ์ลบเอกสารนี้ — เฉพาะผู้รับเรื่องและ Admin เท่านั้น', 'error');
+        const _docOwner2 = (_docToDel?.createdBy || '').trim();
+        if (!_docToDel || !_docOwner2 || _docOwner2 !== _cu2) {
+            showToast('⛔ คุณไม่มีสิทธิ์ลบเอกสารนี้ — เฉพาะเจ้าของผู้สร้างและ Admin เท่านั้น', 'error');
             return;
         }
     }
@@ -11917,12 +11916,12 @@ function docRenderList() {
         const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
 
-        // \u0e40\u0e09\u0e1e\u0e32\u0e30 adminit \u0e2b\u0e23\u0e37\u0e2d \u0e1c\u0e39\u0e49\u0e23\u0e31\u0e1a\u0e40\u0e23\u0e37\u0e48\u0e2d\u0e07 (sig1Name) \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19\u0e17\u0e35\u0e48\u0e41\u0e01\u0e49\u0e44\u0e02/\u0e25\u0e1a\u0e44\u0e14\u0e49
-        const _canEdit = _isAdmin || (_myName && d.sig1Name === _myName);
+        // เฉพาะ adminit หรือเจ้าของผู้สร้างเอกสาร (createdBy) เท่านั้นที่แก้ไข/ลบได้
+        const _canEdit = _isAdmin || (!!_cu && (d.createdBy || '') === _cu);
 
         const sig1Html = d.sig1Name
             ? `<span style="font-size:.8rem;color:#1e293b;">${d.sig1Name}</span>`
-              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13</span>` : '')
+              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">เอกสารของคุณ</span>` : '')
             : '<span style="color:#94a3b8;">-</span>';
 
         const editBtnHtml = _canEdit
