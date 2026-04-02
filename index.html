@@ -11535,27 +11535,31 @@ async function docGetAllAsync() {
     if (getGasDbUrl()) {
         try {
             const res = await gasFetch('getDocs');
-            // รับข้อมูลจาก GAS ต่อเมื่อ docs เป็น array และแต่ละ item มี number field ที่ถูกต้อง
-            if (res && Array.isArray(res.docs) && res.docs.length > 0) {
-                // ตรวจว่า number ไม่ใช่ subject (ป้องกัน GAS เก่าที่ columns สลับ)
-                const firstDoc = res.docs[0];
-                const numberLooksValid = firstDoc.number && /ITS/i.test(firstDoc.number);
-                const subjectLooksWrong = firstDoc.number && firstDoc.number.includes('เอกสารชี้แจง');
-                if (numberLooksValid && !subjectLooksWrong) {
-                    _docCache = res.docs;
-                    _docGasHasData = true;
-                    localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                    return _docCache;
-                } else {
-                    // GAS เก่า — ข้ามไปใช้ localStorage
+            // GAS คือ shared source of truth — รับทุกกรณีที่ status ok และ docs เป็น array
+            if (res && res.status === 'ok' && Array.isArray(res.docs)) {
+                if (res.docs.length > 0) {
+                    // ตรวจ column order เฉพาะกรณีมีข้อมูล
+                    const firstDoc = res.docs[0];
+                    const subjectLooksWrong = firstDoc.number && firstDoc.number.includes('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
+                    if (!subjectLooksWrong) {
+                        _docCache = res.docs;
+                        _docGasHasData = true;
+                        localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
+                        return _docCache;
+                    }
                     console.warn('[docGetAllAsync] GAS returned wrong column order, falling back to localStorage');
+                } else {
+                    // GAS ตอบ ok + docs=[] → Sheet ว่าง → ใช้ [] โดยตรง ไม่ fallback localStorage ของ device อื่น
+                    _docCache = [];
+                    _docGasHasData = true;
+                    return _docCache;
                 }
             }
         } catch(e) {
             console.warn('[docGetAllAsync] GAS error:', e.message);
         }
     }
-    // Fallback: localStorage
+    // Fallback: localStorage (เฉพาะกรณี GAS offline หรือยังไม่ได้ตั้งค่า URL)
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11740,11 +11744,9 @@ function docEditDocument(id) {
     const docs = docGetAll();
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
-
     // ── ตรวจสิทธิ์: เฉพาะ adminit หรือผู้รับเรื่อง (sig1Name) เท่านั้น ──
     const _cu = sessionStorage.getItem('it_current_user') || '';
     if (_cu !== ADMIN_USER) {
-        // หา staff name ของ current user
         const _myStaff = adminStaff.find(s => s.username === _cu);
         const _myName  = _myStaff ? _myStaff.name : '';
         if (!_myName || doc.sig1Name !== _myName) {
@@ -11898,11 +11900,11 @@ function docRenderList() {
     if (statF) docs = docs.filter(d => d.status === statF);
 
     if (!docs.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23 \u2014 \u0e01\u0e14 "\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e43\u0e2b\u0e21\u0e48" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e40\u0e23\u0e34\u0e48\u0e21\u0e15\u0e49\u0e19</td></tr>`;
         return;
     }
 
-    // ── ตรวจสิทธิ์ current user ──
+    // ── \u0e15\u0e23\u0e27\u0e08\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c current user ──
     const _cu = sessionStorage.getItem('it_current_user') || '';
     const _isAdmin = (_cu === ADMIN_USER);
     const _myStaff = adminStaff.find(s => s.username === _cu);
@@ -11910,25 +11912,24 @@ function docRenderList() {
 
     tbody.innerHTML = docs.map((d,i) => {
         const statusHtml = d.status === 'final'
-            ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
-            : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>แบบร่าง</span>`;
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07</span>`;
         const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
 
-        // ── ตรวจสิทธิ์แต่ละ doc: adminit หรือ ผู้รับเรื่อง (sig1Name) เท่านั้น ──
+        // \u0e40\u0e09\u0e1e\u0e32\u0e30 adminit \u0e2b\u0e23\u0e37\u0e2d \u0e1c\u0e39\u0e49\u0e23\u0e31\u0e1a\u0e40\u0e23\u0e37\u0e48\u0e2d\u0e07 (sig1Name) \u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19\u0e17\u0e35\u0e48\u0e41\u0e01\u0e49\u0e44\u0e02/\u0e25\u0e1a\u0e44\u0e14\u0e49
         const _canEdit = _isAdmin || (_myName && d.sig1Name === _myName);
 
-        // sig1Name + badge ถ้าเป็นเจ้าของ
         const sig1Html = d.sig1Name
             ? `<span style="font-size:.8rem;color:#1e293b;">${d.sig1Name}</span>`
-              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">เอกสารของคุณ</span>` : '')
+              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13</span>` : '')
             : '<span style="color:#94a3b8;">-</span>';
 
         const editBtnHtml = _canEdit
-            ? `<button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>`
+            ? `<button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">\u0e41\u0e01\u0e49\u0e44\u0e02</button>`
             : '';
         const delBtnHtml = _canEdit
-            ? `<button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>`
+            ? `<button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">\u0e25\u0e1a</button>`
             : '';
 
         return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
@@ -11941,7 +11942,7 @@ function docRenderList() {
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
                 <div style="display:flex;justify-content:center;gap:5px;">
-                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
+                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">\u0e14\u0e39</button>
                     ${editBtnHtml}
                     ${delBtnHtml}
                 </div>
