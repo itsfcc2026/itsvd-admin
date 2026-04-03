@@ -3092,7 +3092,7 @@
                         <col style="width:18%"><!-- หมวด/ผู้รับ -->
                         <col style="width:15%"><!-- ความเร่งด่วน -->
                         <col style="width:13%"><!-- สถานะ -->
-                        <col style="width:8%"> <!-- จัดการ -->
+
                     </colgroup>
                     <thead>
                         <tr style="background:linear-gradient(90deg,#f8faff,#f0f5ff);">
@@ -3108,7 +3108,7 @@
                             <th style="padding:8px 10px;text-align:left;font-size:.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">หมวดหมู่ / ผู้รับ</th>
                             <th style="padding:8px 10px;text-align:left;font-size:.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">ความเร่งด่วน</th>
                             <th style="padding:8px 10px;text-align:left;font-size:.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">สถานะ</th>
-                            <th style="padding:8px 10px;text-align:center;font-size:.65rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">จัดการ</th>
+
                         </tr>
                     </thead>
                     <tbody id="admin-all-tickets-list"></tbody>
@@ -7499,10 +7499,7 @@ function adminRenderDashboard() {
             <td><span class="priority-badge priority-${t.priority}">${getPriorityLabel(t.priority)}</span></td>
             <td>${assigneeCell}</td>
             <td><span class="badge badge-${t.status.replace(' ','')}">${statusLabels[currentLang][t.status]}</span></td>
-            <td><button class="btn-icon" onclick="openTicketModal('${t.id}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-                จัดการ
-            </button></td>
+
         </tr>`;
     }).join('') : '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีข้อมูล</td></tr>';
 }
