@@ -3085,13 +3085,14 @@
             <div class="adm-table-wrap" style="background:white;border-radius:16px;border:1px solid #e8eef6;box-shadow:0 2px 12px rgba(30,64,175,0.06);overflow:hidden;">
                 <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
                     <colgroup>
-                        <col style="width:13%"><!-- Ticket -->
-                        <col style="width:16%"><!-- ผู้แจ้ง -->
-                        <col style="width:10%"><!-- วันที่ -->
-                        <col style="width:13%"><!-- ระยะเวลาแก้ไข -->
-                        <col style="width:24%"><!-- หมวด/ผู้รับ -->
-                        <col style="width:13%"><!-- ความเร่งด่วน -->
-                        <col style="width:11%"><!-- สถานะ -->
+                        <col style="width:12%"><!-- Ticket -->
+                        <col style="width:14%"><!-- ผู้แจ้ง -->
+                        <col style="width:9%"> <!-- วันที่ -->
+                        <col style="width:12%"><!-- ระยะเวลาแก้ไข -->
+                        <col style="width:16%"><!-- หมวดหมู่ -->
+                        <col style="width:15%"><!-- ผู้รับ -->
+                        <col style="width:12%"><!-- ความเร่งด่วน -->
+                        <col style="width:10%"><!-- สถานะ -->
                     </colgroup>
                     <thead>
                         <tr style="background:linear-gradient(90deg,#f8faff,#f0f5ff);">
@@ -3104,7 +3105,8 @@
                                     ระยะเวลาแก้ไข
                                 </span>
                             </th>
-                            <th style="padding:10px 12px;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">หมวดหมู่ / ผู้รับ</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">หมวดหมู่</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">ผู้รับ</th>
                             <th style="padding:10px 12px;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">ความเร่งด่วน</th>
                             <th style="padding:10px 12px;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e8eef6;">สถานะ</th>
                         </tr>
@@ -7561,7 +7563,7 @@ function adminRenderAllTickets() {
     const countEl = document.getElementById('ticket-count-label');
     if (adminTickets.length === 0) {
         if (countEl) countEl.textContent = '';
-        tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;">
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:40px;text-align:center;">
             <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <p style="font-weight:700;color:#64748b;font-size:.95rem;">ยังไม่มีข้อมูล Ticket</p>
@@ -7652,10 +7654,13 @@ function adminRenderAllTickets() {
                 </span>
                 ${elapsed.done ? `<div style="font-size:.65rem;color:#16a34a;margin-top:2px;font-weight:600;">✓ เสร็จสิ้น</div>` : `<div style="font-size:.65rem;color:#94a3b8;margin-top:2px;">กำลังดำเนินการ</div>`}
             </td>
-            <!-- Col 4: หมวดหมู่ + ผู้รับผิดชอบ รวม -->
+            <!-- Col 4: หมวดหมู่ -->
             <td style="${tdStyle}">
                 <div style="font-size:.78rem;color:#334155;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getCatLabel(t.category)}</div>
-                <div style="margin-top:3px;">${assigneeHtml}</div>
+            </td>
+            <!-- Col 5: ผู้รับผิดชอบ -->
+            <td style="${tdStyle}">
+                ${assigneeHtml}
             </td>
             <!-- Col 5: ความเร่งด่วน -->
             <td style="${tdStyle}">
@@ -7670,7 +7675,7 @@ function adminRenderAllTickets() {
             </td>
         </tr>`;
     }).join('') : `
-        <tr><td colspan="7" style="padding:4rem;text-align:center;">
+        <tr><td colspan="8" style="padding:4rem;text-align:center;">
             <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 <span style="color:#94a3b8;font-size:.9rem;font-weight:600;">ไม่พบ Ticket</span>
