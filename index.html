@@ -4382,9 +4382,14 @@ async function syncTickets() {
     // ใช้ข้อมูลตรงจาก GAS เลย — ticket ที่ถูก "ลบ" จริงจะถูกลบจาก GAS Sheet แล้ว
     const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'active';
     let filtered;
-    // กรอง _deletedIds เสมอ ทั้ง admin และ user — ป้องกัน ticket ที่ถูกลบแล้วเด้งกลับมา
-    const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-    filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
+    if (isAdmin) {
+        // Admin เห็น ticket ทั้งหมดจาก GAS โดยไม่กรอง local blacklist
+        filtered = data;
+    } else {
+        // User portal: กรอง _deletedIds ที่อาจถูก soft-delete ใน local session
+        const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+        filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
+    }
 
     adminTickets = filtered;                          // admin/staff เห็นทั้งหมด
     userTickets  = _filterForCurrentUser(filtered);   // user เห็นเฉพาะของตัวเอง
@@ -7670,7 +7675,9 @@ function adminRenderAllTickets() {
             </td>
             <!-- Col 7: จัดการ -->
             <td style="${tdStyle}text-align:center;" onclick="event.stopPropagation();">
-                ${(sessionStorage.getItem('it_current_user') === ADMIN_USER) ? `<button class="btn-icon" onclick="openDeleteModal('${t.id}')" title="ลบ" style="color:#dc2626;border-color:#fecaca;background:#fff5f5;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>` : '<span style="color:#cbd5e1;font-size:.75rem;">—</span>'}
+                <button class="btn-icon" onclick="openDeleteModal('${t.id}')" title="ลบ" style="color:#dc2626;border-color:#fecaca;background:#fff5f5;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
             </td>
         </tr>`;
     }).join('') : `
@@ -8553,13 +8560,6 @@ function openDeleteModal(id) {
 
 function confirmDelete() {
     const pw = document.getElementById('delete-password').value;
-    // เฉพาะ adminit เท่านั้นที่ลบได้
-    const currentUser = sessionStorage.getItem('it_current_user') || '';
-    if (currentUser !== ADMIN_USER) {
-        showToast('⛔ เฉพาะ adminit เท่านั้นที่มีสิทธิ์ลบ Ticket', 'error');
-        closeModal('modal-delete');
-        return;
-    }
     if (pw !== DELETE_PASSWORD) {
         document.getElementById('delete-error').style.display = 'block';
         document.getElementById('delete-password').focus();
@@ -8586,23 +8586,19 @@ function confirmDelete() {
     adminRenderAllTickets();
     adminRenderDashboard();
 
-    // Sync ลบออกจาก GAS แบบ background — ส่งเฉพาะ ticket ที่เหลือ (ไม่รวม ticket ที่ถูกลบ)
+    // Sync ลบออกจาก GAS แบบ background
     (async () => {
         try {
             const url = getGasDbUrl();
             if (!url) return;
-            const res = await fetch(url, {
+            await fetch(url, {
                 method: 'POST', mode: 'cors', redirect: 'follow',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveTickets', data: JSON.stringify(adminTickets) })
             });
-            const json = await res.json().catch(() => ({}));
-            // ลบออกจาก blacklist เฉพาะเมื่อ GAS ยืนยัน ok แล้วเท่านั้น
-            if (json && json.status === 'ok') {
-                const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-                localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
-            }
-            // ถ้า GAS ไม่ตอบ ok → blacklist คงอยู่ กัน ticket เด้งกลับใน sync รอบถัดไป
+            // ถ้า GAS รับแล้ว ลบออกจาก blacklist ได้เลย (optional cleanup)
+            const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+            localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
         } catch(e) { /* blacklist ยังคงอยู่ ป้องกัน sync รอบถัดไป */ }
     })();
 }
