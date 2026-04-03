@@ -8586,19 +8586,23 @@ function confirmDelete() {
     adminRenderAllTickets();
     adminRenderDashboard();
 
-    // Sync ลบออกจาก GAS แบบ background
+    // Sync ลบออกจาก GAS แบบ background — ส่งเฉพาะ ticket ที่เหลือ (ไม่รวม ticket ที่ถูกลบ)
     (async () => {
         try {
             const url = getGasDbUrl();
             if (!url) return;
-            await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST', mode: 'cors', redirect: 'follow',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveTickets', data: JSON.stringify(adminTickets) })
             });
-            // ถ้า GAS รับแล้ว ลบออกจาก blacklist ได้เลย (optional cleanup)
-            const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-            localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
+            const json = await res.json().catch(() => ({}));
+            // ลบออกจาก blacklist เฉพาะเมื่อ GAS ยืนยัน ok แล้วเท่านั้น
+            if (json && json.status === 'ok') {
+                const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+                localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
+            }
+            // ถ้า GAS ไม่ตอบ ok → blacklist คงอยู่ กัน ticket เด้งกลับใน sync รอบถัดไป
         } catch(e) { /* blacklist ยังคงอยู่ ป้องกัน sync รอบถัดไป */ }
     })();
 }
