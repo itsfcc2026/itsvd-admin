@@ -4378,17 +4378,14 @@ async function syncTickets() {
     const data = await dbGetTickets(); // GAS first, offline cache fallback
     console.log('[syncTickets] ได้รับ', data.length, 'tickets จาก GAS/cache');
 
-    // Admin/staff session: ไม่กรอง _deletedIds (blacklist ของ local เครื่องอื่นไม่ควรซ่อน ticket)
-    // ใช้ข้อมูลตรงจาก GAS เลย — ticket ที่ถูก "ลบ" จริงจะถูกลบจาก GAS Sheet แล้ว
-    const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'active';
+    // กรอง _deletedIds ทั้ง admin และ user เพื่อป้องกัน ticket กลับมาหลัง refresh
+    // (GAS อาจยังไม่ได้รับการอัปเดต หรือ sync ยังไม่เสร็จ)
+    const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
     let filtered;
-    if (isAdmin) {
-        // Admin เห็น ticket ทั้งหมดจาก GAS โดยไม่กรอง local blacklist
-        filtered = data;
+    if (deletedIds.length) {
+        filtered = data.filter(t => !deletedIds.includes(t.id));
     } else {
-        // User portal: กรอง _deletedIds ที่อาจถูก soft-delete ใน local session
-        const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-        filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
+        filtered = data;
     }
 
     adminTickets = filtered;                          // admin/staff เห็นทั้งหมด
@@ -8596,9 +8593,8 @@ function confirmDelete() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'saveTickets', data: JSON.stringify(adminTickets) })
             });
-            // ถ้า GAS รับแล้ว ลบออกจาก blacklist ได้เลย (optional cleanup)
-            const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-            localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
+            // ไม่ลบออกจาก blacklist ทันที — คงไว้ตลอดเพื่อป้องกัน GAS sync คืนมา
+            // (blacklist จะถูก cleanup เมื่อมีการ verify จาก GAS ว่าลบสำเร็จแล้วจริง)
         } catch(e) { /* blacklist ยังคงอยู่ ป้องกัน sync รอบถัดไป */ }
     })();
 }
