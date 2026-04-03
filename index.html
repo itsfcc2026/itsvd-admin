@@ -4382,14 +4382,9 @@ async function syncTickets() {
     // ใช้ข้อมูลตรงจาก GAS เลย — ticket ที่ถูก "ลบ" จริงจะถูกลบจาก GAS Sheet แล้ว
     const isAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'active';
     let filtered;
-    if (isAdmin) {
-        // Admin เห็น ticket ทั้งหมดจาก GAS โดยไม่กรอง local blacklist
-        filtered = data;
-    } else {
-        // User portal: กรอง _deletedIds ที่อาจถูก soft-delete ใน local session
-        const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-        filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
-    }
+    // กรอง _deletedIds เสมอ ทั้ง admin และ user — ป้องกัน ticket ที่ถูกลบแล้วเด้งกลับมา
+    const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+    filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
 
     adminTickets = filtered;                          // admin/staff เห็นทั้งหมด
     userTickets  = _filterForCurrentUser(filtered);   // user เห็นเฉพาะของตัวเอง
@@ -6881,7 +6876,7 @@ function getDocSheet() {
   var ds = ss.getSheetByName('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
   if (!ds) {
     ds = ss.insertSheet('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
-    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
+    ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
   }
   return ds;
 }
@@ -7240,15 +7235,14 @@ function doGet(e) {
         var docs = parseParam(e.parameter.docs, []);
         var ds = getDocSheet();
         ds.clearContents();
-        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full','createdBy']);
+        ds.appendRow(['id','number','subject','category','sig1Name','status','updatedAt','createdAt','body','json_full']);
         docs.forEach(function(d) {
           ds.appendRow([
             d.id||'', d.number||'', d.subject||'', d.category||'', d.sig1Name||'',
             (d.status==='final') ? '\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19' : '\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07',
             d.updatedAt||'', d.createdAt||'',
             (d.body||'').substring(0,500),
-            JSON.stringify(d),
-            d.createdBy||''
+            JSON.stringify(d)
           ]);
         });
         return jsonOut({ status: 'ok', saved: docs.length });
@@ -7676,9 +7670,7 @@ function adminRenderAllTickets() {
             </td>
             <!-- Col 7: จัดการ -->
             <td style="${tdStyle}text-align:center;" onclick="event.stopPropagation();">
-                <button class="btn-icon" onclick="openDeleteModal('${t.id}')" title="ลบ" style="color:#dc2626;border-color:#fecaca;background:#fff5f5;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </button>
+                ${(sessionStorage.getItem('it_current_user') === ADMIN_USER) ? `<button class="btn-icon" onclick="openDeleteModal('${t.id}')" title="ลบ" style="color:#dc2626;border-color:#fecaca;background:#fff5f5;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>` : '<span style="color:#cbd5e1;font-size:.75rem;">—</span>'}
             </td>
         </tr>`;
     }).join('') : `
@@ -8561,6 +8553,13 @@ function openDeleteModal(id) {
 
 function confirmDelete() {
     const pw = document.getElementById('delete-password').value;
+    // เฉพาะ adminit เท่านั้นที่ลบได้
+    const currentUser = sessionStorage.getItem('it_current_user') || '';
+    if (currentUser !== ADMIN_USER) {
+        showToast('⛔ เฉพาะ adminit เท่านั้นที่มีสิทธิ์ลบ Ticket', 'error');
+        closeModal('modal-delete');
+        return;
+    }
     if (pw !== DELETE_PASSWORD) {
         document.getElementById('delete-error').style.display = 'block';
         document.getElementById('delete-password').focus();
@@ -11536,31 +11535,27 @@ async function docGetAllAsync() {
     if (getGasDbUrl()) {
         try {
             const res = await gasFetch('getDocs');
-            // GAS คือ shared source of truth — รับทุกกรณีที่ status ok และ docs เป็น array
-            if (res && res.status === 'ok' && Array.isArray(res.docs)) {
-                if (res.docs.length > 0) {
-                    // ตรวจ column order เฉพาะกรณีมีข้อมูล
-                    const firstDoc = res.docs[0];
-                    const subjectLooksWrong = firstDoc.number && firstDoc.number.includes('\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e0a\u0e35\u0e49\u0e41\u0e08\u0e07');
-                    if (!subjectLooksWrong) {
-                        _docCache = res.docs;
-                        _docGasHasData = true;
-                        localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
-                        return _docCache;
-                    }
-                    console.warn('[docGetAllAsync] GAS returned wrong column order, falling back to localStorage');
-                } else {
-                    // GAS ตอบ ok + docs=[] → Sheet ว่าง → ใช้ [] โดยตรง ไม่ fallback localStorage ของ device อื่น
-                    _docCache = [];
+            // รับข้อมูลจาก GAS ต่อเมื่อ docs เป็น array และแต่ละ item มี number field ที่ถูกต้อง
+            if (res && Array.isArray(res.docs) && res.docs.length > 0) {
+                // ตรวจว่า number ไม่ใช่ subject (ป้องกัน GAS เก่าที่ columns สลับ)
+                const firstDoc = res.docs[0];
+                const numberLooksValid = firstDoc.number && /ITS/i.test(firstDoc.number);
+                const subjectLooksWrong = firstDoc.number && firstDoc.number.includes('เอกสารชี้แจง');
+                if (numberLooksValid && !subjectLooksWrong) {
+                    _docCache = res.docs;
                     _docGasHasData = true;
+                    localStorage.setItem(DOC_KEY, JSON.stringify(_docCache));
                     return _docCache;
+                } else {
+                    // GAS เก่า — ข้ามไปใช้ localStorage
+                    console.warn('[docGetAllAsync] GAS returned wrong column order, falling back to localStorage');
                 }
             }
         } catch(e) {
             console.warn('[docGetAllAsync] GAS error:', e.message);
         }
     }
-    // Fallback: localStorage (เฉพาะกรณี GAS offline หรือยังไม่ได้ตั้งค่า URL)
+    // Fallback: localStorage
     try {
         const raw = localStorage.getItem(DOC_KEY);
         _docCache = raw ? JSON.parse(raw) : [];
@@ -11745,15 +11740,6 @@ function docEditDocument(id) {
     const docs = docGetAll();
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
-    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือเจ้าของที่สร้างเอกสาร (createdBy) เท่านั้น ──
-    const _cu = sessionStorage.getItem('it_current_user') || '';
-    if (_cu !== ADMIN_USER) {
-        const _docOwner = (doc.createdBy || '').trim();
-        if (!_docOwner || _docOwner !== _cu) {
-            showToast('⛔ คุณไม่มีสิทธิ์แก้ไขเอกสารนี้ — เฉพาะเจ้าของผู้สร้างและ Admin เท่านั้น', 'error');
-            return;
-        }
-    }
     _docEditId = id;
 
     // parse doc number back to seq + year
@@ -11838,7 +11824,6 @@ async function docSave(status) {
         sig3Date:      document.getElementById('sig3-date').value,
         updatedAt: now,
         createdAt: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdAt || now) : now,
-        createdBy: _docEditId ? (docs.find(d=>d.id===_docEditId)?.createdBy || sessionStorage.getItem('it_current_user') || '') : (sessionStorage.getItem('it_current_user') || ''),
     };
     if (_docEditId) {
         const idx = docs.findIndex(d => d.id === _docEditId);
@@ -11855,16 +11840,6 @@ async function docSave(status) {
 }
 
 async function docDelete(id) {
-    // ── ตรวจสิทธิ์: เฉพาะ adminit หรือเจ้าของที่สร้างเอกสาร (createdBy) เท่านั้น ──
-    const _cu2 = sessionStorage.getItem('it_current_user') || '';
-    if (_cu2 !== ADMIN_USER) {
-        const _docToDel = docGetAll().find(d => d.id === id);
-        const _docOwner2 = (_docToDel?.createdBy || '').trim();
-        if (!_docToDel || !_docOwner2 || _docOwner2 !== _cu2) {
-            showToast('⛔ คุณไม่มีสิทธิ์ลบเอกสารนี้ — เฉพาะเจ้าของผู้สร้างและ Admin เท่านั้น', 'error');
-            return;
-        }
-    }
     if (!confirm('ยืนยันการลบเอกสารนี้?')) return;
 
     // 1. ลบออกจาก cache + localStorage ทันที
@@ -11899,51 +11874,28 @@ function docRenderList() {
     if (statF) docs = docs.filter(d => d.status === statF);
 
     if (!docs.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23 \u2014 \u0e01\u0e14 "\u0e2a\u0e23\u0e49\u0e32\u0e07\u0e40\u0e2d\u0e01\u0e2a\u0e32\u0e23\u0e43\u0e2b\u0e21\u0e48" \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e40\u0e23\u0e34\u0e48\u0e21\u0e15\u0e49\u0e19</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:3rem;color:#94a3b8;font-size:.88rem;">ยังไม่มีเอกสาร — กด "สร้างเอกสารใหม่" เพื่อเริ่มต้น</td></tr>`;
         return;
     }
-
-    // ── \u0e15\u0e23\u0e27\u0e08\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c current user ──
-    const _cu = sessionStorage.getItem('it_current_user') || '';
-    const _isAdmin = (_cu === ADMIN_USER);
-    const _myStaff = adminStaff.find(s => s.username === _cu);
-    const _myName  = _myStaff ? (_myStaff.name || '') : '';
-
     tbody.innerHTML = docs.map((d,i) => {
         const statusHtml = d.status === 'final'
-            ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e2a\u0e34\u0e49\u0e19</span>`
-            : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>\u0e41\u0e1a\u0e1a\u0e23\u0e48\u0e32\u0e07</span>`;
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#15803d;"></span>เสร็จสิ้น</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;background:#f8fafc;color:#64748b;border:1px solid #cbd5e1;border-radius:20px;padding:2px 9px;"><span style="width:5px;height:5px;border-radius:50%;background:#94a3b8;"></span>แบบร่าง</span>`;
         const rowBg = i % 2 === 0 ? 'white' : '#fafbff';
         const dateStr = d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'}) : '-';
-
-        // เฉพาะ adminit หรือเจ้าของผู้สร้างเอกสาร (createdBy) เท่านั้นที่แก้ไข/ลบได้
-        const _canEdit = _isAdmin || (!!_cu && (d.createdBy || '') === _cu);
-
-        const sig1Html = d.sig1Name
-            ? `<span style="font-size:.8rem;color:#1e293b;">${d.sig1Name}</span>`
-              + (_canEdit && !_isAdmin ? `<span style="font-size:.6rem;background:#E8F2F4;color:#2C4A52;border:1px solid #A8D4DB;border-radius:10px;padding:1px 6px;margin-left:5px;">เอกสารของคุณ</span>` : '')
-            : '<span style="color:#94a3b8;">-</span>';
-
-        const editBtnHtml = _canEdit
-            ? `<button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">\u0e41\u0e01\u0e49\u0e44\u0e02</button>`
-            : '';
-        const delBtnHtml = _canEdit
-            ? `<button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">\u0e25\u0e1a</button>`
-            : '';
-
         return `<tr style="background:${rowBg};cursor:pointer;transition:.12s;"
                     onmouseover="this.style.background='#E8F2F4'" onmouseout="this.style.background='${rowBg}'">
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.82rem;font-weight:800;color:#2C4A52;">${d.number}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.83rem;font-weight:600;color:#1e293b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${d.subject}">${d.subject}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#475569;">${d.category}</td>
-            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">${sig1Html}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.8rem;color:#1e293b;">${d.sig1Name || '-'}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;">${statusHtml}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:.78rem;color:#94a3b8;white-space:nowrap;">${dateStr}</td>
             <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;text-align:center;" onclick="event.stopPropagation();">
                 <div style="display:flex;justify-content:center;gap:5px;">
-                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">\u0e14\u0e39</button>
-                    ${editBtnHtml}
-                    ${delBtnHtml}
+                    <button onclick="docPreviewById('${d.id}')" style="background:#E8F2F4;border:1px solid #A8D4DB;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#2C4A52;transition:.15s;" onmouseover="this.style.background='#D0E8EC'" onmouseout="this.style.background='#E8F2F4'">ดู</button>
+                    <button onclick="docEditDocument('${d.id}')" style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#15803d;transition:.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">แก้ไข</button>
+                    <button onclick="docDelete('${d.id}')" style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:4px 10px;font-size:.72rem;font-weight:700;font-family:'Sarabun',sans-serif;cursor:pointer;color:#dc2626;transition:.15s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">ลบ</button>
                 </div>
             </td>
         </tr>`;
