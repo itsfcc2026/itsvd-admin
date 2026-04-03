@@ -4379,6 +4379,7 @@ async function syncTickets() {
     console.log('[syncTickets] ได้รับ', data.length, 'tickets จาก GAS/cache');
 
     // กรอง _deletedIds ทั้ง admin และ user — ป้องกัน ticket กลับมาหลัง refresh
+    // (GAS อาจยังไม่ได้รับ saveTickets หรือ sync ยังไม่เสร็จ)
     const deletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
     const filtered = deletedIds.length ? data.filter(t => !deletedIds.includes(t.id)) : data;
 
@@ -4698,9 +4699,9 @@ async function showAdminPanel() {
     // 8. render จาก cache ทันที (admin ไม่กรอง _deletedIds — ใช้ข้อมูลดิบจาก cache)
     try {
         const _raw = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-        // กรอง _deletedIds จาก cache ด้วย ป้องกัน ticket ที่ลบแล้วโชว์ขึ้นมาก่อน GAS sync
-        const _cachedDel = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-        const _rawFiltered = _cachedDel.length ? _raw.filter(t => !_cachedDel.includes(t.id)) : _raw;
+        // กรอง _deletedIds จาก cache ทันที ก่อน render — ป้องกัน ticket ที่ลบแล้วแสดงขึ้นมาระหว่างรอ GAS sync
+        const _cachedDeletedIds = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
+        const _rawFiltered = _cachedDeletedIds.length ? _raw.filter(t => !_cachedDeletedIds.includes(t.id)) : _raw;
         if (_rawFiltered.length) adminTickets = _rawFiltered;
         if (typeof updateAdminStats === 'function') updateAdminStats();
         if (typeof adminRenderDashboard === 'function') adminRenderDashboard();
@@ -8579,30 +8580,32 @@ function confirmDelete() {
     adminRenderAllTickets();
     adminRenderDashboard();
 
-    // Sync ลบออกจาก GAS แบบ background — ใช้ deleteTicket action (precise)
+    // Sync ลบออกจาก GAS แบบ background
     (async () => {
         try {
             const url = getGasDbUrl();
             if (!url) return;
-            const res = await fetch(url, {
-                method: 'POST', mode: 'cors', redirect: 'follow',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'deleteTicket', id: deletedId })
-            });
-            const json = await res.json().catch(() => null);
-            // ถ้า GAS ยืนยันลบสำเร็จจริง จึงค่อยเคลียร์ blacklist
-            if (json && json.status === 'ok' && json.deleted === true) {
-                const ids = JSON.parse(localStorage.getItem('_deletedIds') || '[]');
-                localStorage.setItem('_deletedIds', JSON.stringify(ids.filter(id => id !== deletedId)));
-            }
-            // ถ้า GAS ไม่รู้จัก deleteTicket (action เก่า) ให้ fallback saveTickets
-            if (!json || json.status === 'unknown_action') {
+            // ลอง deleteTicket action ก่อน (precise delete)
+            let done = false;
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', mode: 'cors', redirect: 'follow',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'deleteTicket', id: deletedId })
+                });
+                const j = await r.json().catch(() => null);
+                if (j && j.status === 'ok') done = true;
+            } catch(e2) {}
+            // fallback: saveTickets ทั้งก้อนถ้า deleteTicket ไม่รองรับ
+            if (!done) {
                 await fetch(url, {
                     method: 'POST', mode: 'cors', redirect: 'follow',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'saveTickets', data: JSON.stringify(adminTickets) })
                 });
             }
+            // *** ไม่ลบออกจาก _deletedIds blacklist เด็ดขาด ***
+            // blacklist ต้องคงอยู่เพื่อกัน GAS sync คืนมาทุกกรณี
         } catch(e) { /* blacklist ยังคงอยู่ ป้องกัน sync รอบถัดไป */ }
     })();
 }
