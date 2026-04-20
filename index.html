@@ -3878,15 +3878,10 @@
             <label>แก้ไขความเร่งด่วน</label>
             <label id="label-not-urgent" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:8px 12px;transition:.15s;"
                 onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
-                <input type="checkbox" id="modal-not-urgent" onchange="onNotUrgentChange()" style="width:16px;height:16px;accent-color:#16a34a;cursor:pointer;">
-                <span style="font-size:.85rem;font-weight:600;color:#15803d;">✅ ไม่ใช่งานเร่งด่วน (User เลือกความเร่งด่วนผิดประเภท)</span>
+                <input type="checkbox" id="modal-not-urgent" style="width:16px;height:16px;accent-color:#16a34a;cursor:pointer;">
+                <span style="font-size:.85rem;font-weight:600;color:#15803d;">✅ ไม่ใช่งานเร่งด่วน (User เลือกความเร่งด่วนผิดประเภท) — ระบบจะปรับเป็น "ปกติ" อัตโนมัติ</span>
             </label>
-            <div id="not-urgent-reason-wrap" style="display:none;margin-top:8px;">
-                <textarea id="modal-not-urgent-reason" rows="2"
-                    placeholder="ระบุเหตุผลที่ปรับความเร่งด่วน เช่น ผู้แจ้งเลือก 'เร่งด่วน' แต่ปัญหาสามารถรอดำเนินการตามปกติได้..."
-                    style="width:100%;padding:.8rem 1rem;border-radius:10px;border:1.5px solid #86efac;font-family:'Sarabun',sans-serif;font-size:.88rem;resize:vertical;background:#f8fff9;transition:all .2s;"></textarea>
-                <div style="font-size:.72rem;color:#16a34a;margin-top:3px;">📌 เมื่อเลือก checkbox นี้ ระบบจะปรับสถานะความเร่งด่วนเป็น "ปกติ" อัตโนมัติ</div>
-            </div>
+            <input type="hidden" id="modal-not-urgent-reason" value="ไม่ใช่งานเร่งด่วน">
         </div>
 
         <!-- บันทึก: แบ่ง 2 ขั้น บังคับกรอก -->
@@ -8167,13 +8162,6 @@ function markTicketFixed() {
     if (statusEl) statusEl.value = 'Fixed';
     saveTicketChanges(false);
     showToast('🔧 เปลี่ยนสถานะเป็น "แก้ไขเสร็จสิ้น" — รอ User ให้คะแนนเพื่อปิดงาน', 'success');
-}
-
-function onNotUrgentChange() {
-    const cb   = document.getElementById('modal-not-urgent');
-    const wrap = document.getElementById('not-urgent-reason-wrap');
-    if (!cb || !wrap) return;
-    wrap.style.display = cb.checked ? 'block' : 'none';
 }
 
 function saveTicketChanges(isClose = false) {
