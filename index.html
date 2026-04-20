@@ -4158,6 +4158,10 @@ const GAS_DB_KEY = 'it_gas_db_url';
 //   โดยไม่ต้องกรอก URL ใหม่ทุกครั้ง
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbytcpCTJ1REBeNEjMkxXLVFKjv36ihaCoOMlSkU_qCDC7EQjmHCG2RM-rpbLOaFyMyP/exec';
 
+// ── Not-Urgent Log → บันทึกผ่าน GAS action 'logNotUrgent' (ดูใน APPS_SCRIPT_CODE) ──
+const NOT_URGENT_SPREADSHEET_ID = '1Kn-0lzOb11F0ZHInaiHBIH_Cb7X8BhUEg510hnvMgdg';
+const NOT_URGENT_SHEET_NAME     = 'ไม่ใช่งานเร่งด่วน';
+
 function getGasDbUrl() {
     return localStorage.getItem(GAS_DB_KEY) || DEFAULT_GAS_URL;
 }
@@ -6864,8 +6868,19 @@ const APPS_SCRIPT_CODE = `// ═════════════════
 //   • ScriptProperties       → Staff, Passwords (ข้อมูลเล็กน้อย)
 // ══════════════════════════════════════════════════════════════
 
-var SHEET_TICKETS  = 'Tickets';
-var SHEET_USERS    = 'Users';
+var SHEET_TICKETS    = 'Tickets';
+var SHEET_USERS      = 'Users';
+var SHEET_NOT_URGENT = 'ไม่ใช่งานเร่งด่วน';
+
+function appendNotUrgentLog(row) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(SHEET_NOT_URGENT);
+  if (!sh) {
+    sh = ss.insertSheet(SHEET_NOT_URGENT);
+    sh.appendRow(['Ticket ID', 'ผู้แจ้ง', 'แผนก/ฝ่าย', 'หน่วยงาน', 'ผู้รับผิดชอบ', 'เหตุผลที่ปรับ', 'วันเวลาที่บันทึก']);
+  }
+  sh.appendRow(row);
+}
 var PROP_STAFF     = 'IT_STAFF';
 var PROP_PASSWORDS = 'IT_PASSWORDS';
 
@@ -7284,6 +7299,20 @@ function doGet(e) {
       if (adminKey !== storedKey) return jsonOut({ ok: false, error: 'Unauthorized' });
       migrateUsersToSheet();
       return jsonOut({ ok: true, message: 'Migration complete' });
+    }
+
+    if (action === 'logNotUrgent') {
+      var row = [
+        e.parameter.ticketId  || '',
+        e.parameter.user      || '',
+        e.parameter.section   || '',
+        e.parameter.dept      || '',
+        e.parameter.assignee  || '',
+        e.parameter.reason    || '',
+        new Date().toLocaleString('th-TH')
+      ];
+      appendNotUrgentLog(row);
+      return jsonOut({ status: 'ok' });
     }
 
     return jsonOut({ status: 'ok', message: 'IT Service Desk GAS Backend v3' });
@@ -8263,6 +8292,25 @@ function saveTicketChanges(isClose = false) {
         } catch(e) {
             console.warn('[save] GAS sync failed', e.message);
         }
+
+        // ── บันทึก logNotUrgent ลง sheet แยก เมื่อ checkbox ถูกติ๊ก ──────────
+        if (newNotUrgent && _edited) {
+            try {
+                const myStaffObj = adminStaff.find(s => s.username === (sessionStorage.getItem('it_current_user') || ''));
+                const myNameLog  = myStaffObj ? myStaffObj.name : (sessionStorage.getItem('it_current_user') || '');
+                await gasFetchWrite('logNotUrgent', {
+                    ticketId: _edited.id        || '',
+                    user:     _edited.user       || '',
+                    section:  _edited.section    || '',
+                    dept:     _edited.dept        || '',
+                    assignee: _edited.assignee    || myNameLog,
+                    reason:   newNotUrgentReason  || ''
+                });
+            } catch(e) {
+                console.warn('[logNotUrgent] failed:', e.message);
+            }
+        }
+
         // ── Telegram: แจ้งเตือนเมื่อสถานะเปลี่ยนเป็น In Progress หรือ Fixed ──
         const _notifyStatuses = ['In Progress', 'Fixed'];
         if (_edited && _notifyStatuses.includes(effectiveStatus) && _prevStatusBeforeSave !== effectiveStatus) {
