@@ -3873,6 +3873,22 @@
             </label>
         </div>
 
+        <!-- ความเร่งด่วน: แก้ไขประเภทผิด -->
+        <div class="admin-form-group">
+            <label>แก้ไขความเร่งด่วน</label>
+            <label id="label-not-urgent" style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:8px 12px;transition:.15s;"
+                onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                <input type="checkbox" id="modal-not-urgent" onchange="onNotUrgentChange()" style="width:16px;height:16px;accent-color:#16a34a;cursor:pointer;">
+                <span style="font-size:.85rem;font-weight:600;color:#15803d;">✅ ไม่ใช่งานเร่งด่วน (User เลือกความเร่งด่วนผิดประเภท)</span>
+            </label>
+            <div id="not-urgent-reason-wrap" style="display:none;margin-top:8px;">
+                <textarea id="modal-not-urgent-reason" rows="2"
+                    placeholder="ระบุเหตุผลที่ปรับความเร่งด่วน เช่น ผู้แจ้งเลือก 'เร่งด่วน' แต่ปัญหาสามารถรอดำเนินการตามปกติได้..."
+                    style="width:100%;padding:.8rem 1rem;border-radius:10px;border:1.5px solid #86efac;font-family:'Sarabun',sans-serif;font-size:.88rem;resize:vertical;background:#f8fff9;transition:all .2s;"></textarea>
+                <div style="font-size:.72rem;color:#16a34a;margin-top:3px;">📌 เมื่อเลือก checkbox นี้ ระบบจะปรับสถานะความเร่งด่วนเป็น "ปกติ" อัตโนมัติ</div>
+            </div>
+        </div>
+
         <!-- บันทึก: แบ่ง 2 ขั้น บังคับกรอก -->
         <div style="background:#f8faff;border:1.5px solid #e0eaff;border-radius:12px;padding:14px 16px;margin-bottom:1.2rem;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
@@ -4117,7 +4133,6 @@
             <select id="staff-role">
                 <option value="IT Support">IT Support</option>
                 <option value="System Admin">System Admin</option>
-                <option value="Programmer">Programmer</option>
             </select>
         </div>
         <button class="btn-admin-primary" style="width:100%; justify-content:center;" onclick="saveStaff()">
@@ -6897,7 +6912,8 @@ var TICKET_COLS = [
   'id','date','resolvedAt','user','email','section','dept',
   'category','desc','priority','status','adminNote','assignee',
   'ticketType','incidentType','rating','fcr','userConfirmed',
-  'reopenCount','assignCount','secondarySupport','escalated','escalateTo'
+  'reopenCount','assignCount','secondarySupport','escalated','escalateTo',
+  'notUrgent','notUrgentReason'
 ];
 
 function getTicketSheet() {
@@ -7949,7 +7965,9 @@ function openTicketModal(id) {
         [noteCheck, noteSolution,
          document.getElementById('modal-assignee'),
          document.getElementById('modal-incident-type'),
-         document.getElementById('modal-escalated')
+         document.getElementById('modal-escalated'),
+         document.getElementById('modal-not-urgent'),
+         document.getElementById('modal-not-urgent-reason')
         ].forEach(el => { if (el) el.disabled = true; });
         if (saveBtn)  { saveBtn.disabled = true;  saveBtn.style.opacity  = '0.4'; saveBtn.style.cursor  = 'not-allowed'; }
         if (fixedBtn) { fixedBtn.style.display = 'none'; }
@@ -7964,7 +7982,9 @@ function openTicketModal(id) {
         [noteCheck, noteSolution,
          document.getElementById('modal-assignee'),
          document.getElementById('modal-incident-type'),
-         document.getElementById('modal-escalated')
+         document.getElementById('modal-escalated'),
+         document.getElementById('modal-not-urgent'),
+         document.getElementById('modal-not-urgent-reason')
         ].forEach(el => { if (el) el.disabled = false; });
         if (saveBtn)  { saveBtn.disabled = false; saveBtn.style.opacity = '1'; saveBtn.style.cursor = 'pointer'; }
 
@@ -8016,6 +8036,13 @@ function openTicketModal(id) {
     if (incTypeEl) incTypeEl.value = t.incidentType || 'Incident';
     const escalEl = document.getElementById('modal-escalated');
     if (escalEl) escalEl.checked = t.escalated === true;
+    // โหลดค่า ไม่ใช่งานเร่งด่วน
+    const notUrgentEl       = document.getElementById('modal-not-urgent');
+    const notUrgentReasonEl = document.getElementById('modal-not-urgent-reason');
+    const notUrgentWrap     = document.getElementById('not-urgent-reason-wrap');
+    if (notUrgentEl) { notUrgentEl.checked = t.notUrgent === true; }
+    if (notUrgentReasonEl) { notUrgentReasonEl.value = t.notUrgentReason || ''; }
+    if (notUrgentWrap) { notUrgentWrap.style.display = (t.notUrgent === true) ? 'block' : 'none'; }
     updateFCRStatusDisplay(t);
     updateAssigneeDropdown();
     document.getElementById('modal-assignee').value = t.assignee || '';
@@ -8113,6 +8140,13 @@ function markTicketFixed() {
     showToast('🔧 เปลี่ยนสถานะเป็น "แก้ไขเสร็จสิ้น" — รอ User ให้คะแนนเพื่อปิดงาน', 'success');
 }
 
+function onNotUrgentChange() {
+    const cb   = document.getElementById('modal-not-urgent');
+    const wrap = document.getElementById('not-urgent-reason-wrap');
+    if (!cb || !wrap) return;
+    wrap.style.display = cb.checked ? 'block' : 'none';
+}
+
 function saveTicketChanges(isClose = false) {
     // permission check — use staff already loaded in memory from server
     const currentUser  = sessionStorage.getItem('it_current_user') || '';
@@ -8139,12 +8173,14 @@ function saveTicketChanges(isClose = false) {
     const noteSolution = (document.getElementById('modal-note-solution')?.value || '').trim();
     const combinedNote = `--- ขั้นตรวจสอบ ---\n${noteCheck}\n\n--- แก้ปัญหาอย่างไร ---\n${noteSolution}`;
 
-    const newStatus       = document.getElementById('modal-status').value;
-    const newNote         = combinedNote;
-    const newAssignee     = document.getElementById('modal-assignee').value;
-    const newEscalated    = !!(document.getElementById('modal-escalated')?.checked);
-    const newIncidentType = document.getElementById('modal-incident-type')?.value || 'Incident';
-    const newSecondary    = [..._secondaryList];
+    const newStatus         = document.getElementById('modal-status').value;
+    const newNote           = combinedNote;
+    const newAssignee       = document.getElementById('modal-assignee').value;
+    const newEscalated      = !!(document.getElementById('modal-escalated')?.checked);
+    const newIncidentType   = document.getElementById('modal-incident-type')?.value || 'Incident';
+    const newSecondary      = [..._secondaryList];
+    const newNotUrgent      = !!(document.getElementById('modal-not-urgent')?.checked);
+    const newNotUrgentReason = (document.getElementById('modal-not-urgent-reason')?.value || '').trim();
 
     // ปุ่ม "บันทึก" คงสถานะเดิม ไม่เปลี่ยนสถานะอัตโนมัติ
     // การเปลี่ยนเป็น Fixed ต้องกดปุ่ม "แก้ไขเสร็จสิ้น" โดยตรง
@@ -8164,6 +8200,9 @@ function saveTicketChanges(isClose = false) {
             escalated:        newEscalated,
             incidentType:     newIncidentType,
             secondarySupport: newSecondary,
+            notUrgent:        newNotUrgent,
+            notUrgentReason:  newNotUrgent ? newNotUrgentReason : '',
+            priority:         newNotUrgent ? 'Low' : t.priority,
         };
 
         // C4: Track assignee changes (assignCount)
