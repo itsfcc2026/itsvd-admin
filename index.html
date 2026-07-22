@@ -2935,6 +2935,22 @@
                     <div id="p1-content"></div>
                 </div>
 
+                <!-- Row WLC (Workload Concentration - Critical/High Priority) -->
+                <div id="wlc-widget" style="background:white;border-radius:14px;padding:1.2rem 1.4rem;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-bottom:1rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1rem;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#7c2d12,#c2410c);display:flex;align-items:center;justify-content:center;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </div>
+                            <div>
+                                <p style="font-size:.9rem;font-weight:900;color:#1e293b;margin:0;letter-spacing:.2px;">ความเสี่ยงกระจุกตัวภาระงาน — Workload Concentration (ด่วนมาก/Critical)</p>
+                                <p style="font-size:.72rem;color:#94a3b8;margin:0;">แจ้งเตือนเมื่อผู้รับผิดชอบคนใดถือ ticket ด่วนมาก/Critical ที่ยังไม่ปิด เกิน 50% ของทั้งหมด &nbsp;|&nbsp; ข้อมูลปัจจุบัน (real-time)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="wlc-content"></div>
+                </div>
+
                 <!-- Row USS (User Satisfaction Score) -->
                 <div id="uss-widget" style="background:white;border-radius:14px;padding:1.2rem 1.4rem;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-bottom:1rem;">
                     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:1rem;">
@@ -6356,6 +6372,7 @@ async function adminRefreshData() {
         renderFCRWidget();
         renderRIRWidget();
         renderP1Widget();
+        renderWLCWidget();
         renderUSSWidget();
         if (document.getElementById('section-team-performance')?.classList.contains('active')) renderTeamPerformance();
         const now = new Date();
@@ -8268,7 +8285,7 @@ function saveTicketChanges(isClose = false) {
     adminRenderDashboard();
     adminRenderAllTickets();
     updateAssigneeDropdown();
-    renderSLAWidget(); renderARTWidget(); renderFCRWidget(); renderRIRWidget(); renderP1Widget(); renderUSSWidget();
+    renderSLAWidget(); renderARTWidget(); renderFCRWidget(); renderRIRWidget(); renderP1Widget(); renderWLCWidget(); renderUSSWidget();
     // ─────────────────────────────────────────────────────────────────────────
 
     showToast('✅ บันทึกเรียบร้อย', 'success');
@@ -8906,7 +8923,31 @@ function renderSLAMonth(el, tickets, label) {
         </div>`;
     }).join('');
 
+    // ── คำเตือน: priority สำคัญ (ด่วนมาก/ระบบใช้งานไม่ได้) ต่ำกว่าเป้า แม้ % รวมจะสูง ──
+    const CRITICAL_PRIORITIES = ['Critical', 'High'];
+    const priPctForWarning = {};
+    CRITICAL_PRIORITIES.forEach(p => {
+        const sub = tickets.filter(t => t.priority === p);
+        const res = sub.filter(t => t.status === 'Resolved');
+        const ok  = res.filter(t => slaIsWithinSLA(t)).length;
+        priPctForWarning[p] = res.length > 0 ? Math.round(ok / res.length * 100) : null;
+    });
+    const lowPriorityHits = CRITICAL_PRIORITIES.filter(p => priPctForWarning[p] !== null && priPctForWarning[p] < 90);
+    const showPriorityWarning = s.pct !== null && s.pct >= 90 && lowPriorityHits.length > 0;
+    const priorityWarningBanner = showPriorityWarning
+        ? `<div style="display:flex;align-items:flex-start;gap:8px;background:#fff7ed;border:1.5px solid #fdba74;border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+            <span style="font-size:1.1rem;line-height:1;">⚠️</span>
+            <div>
+                <div style="font-size:.8rem;font-weight:800;color:#c2410c;">% รวมผ่านเป้าหมาย แต่ priority สำคัญยังต่ำกว่าเป้า 90%</div>
+                <div style="font-size:.75rem;color:#9a3412;margin-top:2px;">
+                    ${lowPriorityHits.map(p => `${priLabel[p]}: <strong>${priPctForWarning[p]}%</strong>`).join(' &nbsp;·&nbsp; ')}
+                </div>
+            </div>
+        </div>`
+        : '';
+
     el.innerHTML = `
+    ${priorityWarningBanner}
     <div style="display:grid;grid-template-columns:auto 1fr;gap:1.4rem;align-items:center;">
         <!-- Gauge circle -->
         <div style="text-align:center;background:${bg};border-radius:14px;padding:1rem 1.4rem;border:1.5px solid ${color}22;min-width:130px;height:100%;box-sizing:border-box;">
@@ -10390,6 +10431,95 @@ function renderP1Widget() {
             </div>
         </div>
     </div>`;
+}
+
+// ===================== WLC WIDGET (Workload Concentration - Critical/High Priority) =====================
+const WLC_THRESHOLD = 50; // % ที่ถือว่าภาระงานกระจุกตัวเกินไป (ปรับได้)
+
+function wlcCalcData() {
+    // นับเฉพาะ ticket ด่วนมาก/Critical ที่ยังไม่ปิดงาน (Open หรือ In Progress) ณ ปัจจุบัน
+    const active = adminTickets.filter(t =>
+        (t.priority === 'High' || t.priority === 'Critical') &&
+        (t.status === 'Open' || t.status === 'In Progress')
+    );
+    const total = active.length;
+    const map = {};
+    active.forEach(t => {
+        const key = (t.assignee && t.assignee.trim()) ? t.assignee : '__unassigned__';
+        if (!map[key]) map[key] = { total: 0, critical: 0, high: 0 };
+        map[key].total++;
+        if (t.priority === 'Critical') map[key].critical++; else map[key].high++;
+    });
+    const rows = Object.entries(map).map(([name, v]) => ({
+        name: name === '__unassigned__' ? null : name,
+        ...v,
+        pct: total > 0 ? Math.round(v.total / total * 100) : 0
+    })).sort((a, b) => b.total - a.total);
+    const flagged = rows.filter(r => r.name && r.pct > WLC_THRESHOLD);
+    return { total, rows, flagged };
+}
+
+function renderWLCWidget() {
+    const el = document.getElementById('wlc-content');
+    if (!el) return;
+
+    const { total, rows, flagged } = wlcCalcData();
+
+    if (total === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:1.4rem 0;color:#94a3b8;font-size:.85rem;">
+            ✅ ไม่มี ticket ด่วนมาก/Critical ที่ค้างอยู่ในขณะนี้
+        </div>`;
+        return;
+    }
+
+    const alertBanner = flagged.length
+        ? `<div style="display:flex;align-items:flex-start;gap:8px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+            <span style="font-size:1.1rem;line-height:1;">⚠️</span>
+            <div>
+                <div style="font-size:.82rem;font-weight:800;color:#b91c1c;">พบภาระงานกระจุกตัวเกินเกณฑ์ (>${WLC_THRESHOLD}%)</div>
+                <div style="font-size:.76rem;color:#991b1b;margin-top:2px;">
+                    ${flagged.map(f => `<strong>${f.name}</strong> ถืองาน ${f.total}/${total} รายการ (${f.pct}%)`).join(' &nbsp;·&nbsp; ')}
+                </div>
+            </div>
+        </div>`
+        : `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:8px 14px;margin-bottom:12px;">
+            <span style="font-size:1rem;">✅</span>
+            <span style="font-size:.8rem;font-weight:700;color:#166534;">ภาระงานกระจายตัวดี ไม่มีใครถือเกิน ${WLC_THRESHOLD}%</span>
+        </div>`;
+
+    const maxTotal = rows[0]?.total || 1;
+    const rowsHtml = rows.map(r => {
+        const isFlagged = r.name && r.pct > WLC_THRESHOLD;
+        const staffMember = r.name ? adminStaff.find(s => s.name === r.name) : null;
+        const isAdm = staffMember && isAdminRole(staffMember.role);
+        const avBg = !r.name ? '#94a3b8'
+            : isAdm ? 'linear-gradient(135deg,#92400e,#d97706)'
+            : (staffMember && staffMember.color ? staffMember.color : '#4A7C8A');
+        const displayName = r.name || 'ยังไม่มอบหมาย';
+        const barColor = isFlagged ? '#dc2626' : '#c2410c';
+        const barW = Math.round(r.total / maxTotal * 100);
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;${isFlagged ? 'background:#fef2f2;' : ''}">
+            <div style="width:26px;height:26px;border-radius:50%;background:${avBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <span style="font-size:.82rem;font-weight:700;color:${r.name ? '#334155' : '#94a3b8'};min-width:110px;">${displayName}${isFlagged ? ' ⚠️' : ''}</span>
+            <div style="flex:1;background:#fff7ed;border-radius:99px;height:9px;overflow:hidden;position:relative;">
+                <div style="width:${barW}%;background:${barColor};height:100%;border-radius:99px;transition:width .5s;"></div>
+                ${WLC_THRESHOLD < 100 ? `<div style="position:absolute;top:0;bottom:0;left:${WLC_THRESHOLD}%;width:1.5px;background:#7f1d1d;opacity:.5;"></div>` : ''}
+            </div>
+            <span style="font-size:.8rem;font-weight:900;color:${isFlagged ? '#dc2626' : '#334155'};min-width:40px;text-align:right;">${r.pct}%</span>
+            <span style="font-size:.72rem;color:#94a3b8;min-width:100px;">${r.total} รายการ (🔴${r.critical} 🟠${r.high})</span>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+        ${alertBanner}
+        <div style="margin-bottom:6px;">
+            <span style="font-size:.78rem;font-weight:800;color:#334155;">การกระจาย ticket ด่วนมาก/Critical ที่ยังไม่ปิด ตามผู้รับผิดชอบ (รวม ${total} รายการ)</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;">${rowsHtml}</div>
+    `;
 }
 
 // ===================== USS WIDGET (User Satisfaction Score) =====================
