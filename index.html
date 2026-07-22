@@ -9202,9 +9202,9 @@ function renderARTWidget() {
 
     // Priority breakdown
     const priLabel = { Critical:'ระบบใช้งานไม่ได้', High:'ด่วนมาก', Medium:'เร่งด่วน', Low:'ปกติ' };
-    const priColor = { High:'#dc2626', Medium:'#d97706', Low:'#16a34a' };
-    const priTarget = { High: 4, Medium: 24, Low: 72 }; // SLA limit hours
-    const priRows = ['High','Medium','Low'].map(p => {
+    const priColor = { Critical:'#7c3aed', High:'#dc2626', Medium:'#d97706', Low:'#16a34a' };
+    const priTarget = SLA_HOURS; // ใช้ค่าเดียวกับ SLA widget เพื่อไม่ให้เป้าหมายขัดแย้งกัน { Critical:1, High:8, Medium:24, Low:72 }
+    const priRows = ['Critical','High','Medium','Low'].map(p => {
         const currAvg = curr.byPriority[p];
         const prevAvg = prev.byPriority[p];
         const chg = (currAvg !== null && prevAvg !== null && prevAvg > 0)
