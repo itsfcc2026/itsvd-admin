@@ -6941,7 +6941,7 @@ var TICKET_COLS = [
   'category','desc','priority','status','adminNote','assignee',
   'ticketType','incidentType','rating','fcr','userConfirmed',
   'reopenCount','assignCount','secondarySupport','escalated','escalateTo',
-  'notUrgent','notUrgentReason'
+  'notUrgent','notUrgentReason','fixedAt'
 ];
 
 function getTicketSheet() {
@@ -8247,8 +8247,10 @@ function saveTicketChanges(isClose = false) {
             updated.assignCount = t.assignCount || (t.assignee ? 1 : 0);
         }
 
-        // C2: Track reopen — when status goes from Resolved → Open
-        if (effectiveStatus === 'Open' && t.status === 'Resolved') {
+        // C2: Track reopen — when status goes from Fixed หรือ Resolved กลับไป Open
+        // (Fixed ถือเป็น "เสร็จงานเชิงเวลา" แล้วเช่นกัน ถ้าถูก reopen จากตรงนี้ก็ต้องนับเป็น reopen ด้วย
+        //  ไม่ใช่นับเฉพาะตอนที่กลายเป็น Resolved อย่างเป็นทางการแล้วเท่านั้น)
+        if (effectiveStatus === 'Open' && (t.status === 'Resolved' || t.status === 'Fixed')) {
             updated.reopenCount    = (t.reopenCount || 0) + 1;
             updated.lastReopenedAt = now;
             updated.resolvedAt     = null;
@@ -8261,6 +8263,16 @@ function saveTicketChanges(isClose = false) {
         // Clear resolvedAt if moved back to Open
         if (effectiveStatus === 'Open' && t.status !== 'Resolved') {
             updated.resolvedAt = null;
+        }
+
+        // fixedAt: เวลาที่ IT แก้ไขเสร็จจริง (เมื่อเข้าสถานะ Fixed หรือ Resolved ครั้งแรก)
+        // ใช้แทน resolvedAt ในการวัด SLA/ART/FCR เพื่อไม่ให้เวลารอ User ให้คะแนนถูกนับรวมเป็นเวลาทำงานของ IT
+        if ((effectiveStatus === 'Fixed' || effectiveStatus === 'Resolved') && !t.fixedAt) {
+            updated.fixedAt = now;
+        }
+        // Clear fixedAt เมื่อ reopen กลับไป Open
+        if (effectiveStatus === 'Open' && t.status !== 'Open') {
+            updated.fixedAt = null;
         }
 
         // C5: userConfirmed — rating > 0 counts as confirmation
@@ -8755,8 +8767,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeGuideMo
 function getElapsed(ticket) {
     // รองรับทั้งกรณีส่ง ticket object และ dateStr (backward compat)
     const dateStr   = (typeof ticket === 'object' && ticket !== null) ? ticket.date : ticket;
-    const isResolved = typeof ticket === 'object' && ticket !== null && ticket.status === 'Resolved' && ticket.resolvedAt;
-    const endTime   = isResolved ? new Date(ticket.resolvedAt).getTime() : Date.now();
+    // ถือว่า "เสร็จแล้ว" ตั้งแต่ IT กด Fixed ไม่ต้องรอ User ให้คะแนนก่อนถึงจะหยุดนับเวลา
+    const isResolved = typeof ticket === 'object' && ticket !== null && isTicketDone(ticket) && getDoneAt(ticket);
+    const endTime   = isResolved ? new Date(getDoneAt(ticket)).getTime() : Date.now();
     const startTime = new Date(dateStr).getTime();
     const diff  = endTime - startTime;
     const mins  = Math.floor(diff / 60000);
@@ -8796,12 +8809,23 @@ const SLA_HOURS = { Low: 72, Medium: 24, High: 8, Critical: 1 }; // ชั่ว
 let slaMode   = 'month'; // 'month' | 'year'
 let slaOffset = 0;       // 0 = Current, -1 = ย้อนหลัง 1, ...
 
+// ── เวลา "เสร็จงานจริง" สำหรับวัด SLA/ART ─────────────────────────────────
+// เมื่อ IT กด "แก้ไขเสร็จสิ้น" (status = Fixed) ถือว่างานเสร็จแล้วในเชิงเวลา
+// แม้จะยังรอ User ให้คะแนนก่อนเปลี่ยนสถานะเป็น Resolved อย่างเป็นทางการ
+// เพื่อไม่ให้เวลาที่ User ลืม/ล่าช้าในการให้คะแนน ไปนับรวมเป็นเวลาทำงานของ IT
+function isTicketDone(t) {
+    return t.status === 'Resolved' || t.status === 'Fixed';
+}
+function getDoneAt(t) {
+    return t.fixedAt || t.resolvedAt || null;
+}
+
 function slaIsWithinSLA(ticket) {
-    if (ticket.status !== 'Resolved' || !ticket.resolvedAt) return false;
-    const created  = new Date(ticket.date).getTime();
-    const resolved = new Date(ticket.resolvedAt).getTime();
-    const hours    = (resolved - created) / 3600000;
-    const limit    = SLA_HOURS[ticket.priority] || 72;
+    if (!isTicketDone(ticket) || !getDoneAt(ticket)) return false;
+    const created = new Date(ticket.date).getTime();
+    const doneAt  = new Date(getDoneAt(ticket)).getTime();
+    const hours   = (doneAt - created) / 3600000;
+    const limit   = SLA_HOURS[ticket.priority] || 72;
     return hours <= limit;
 }
 
@@ -8849,12 +8873,20 @@ function slaGetPeriodTickets() {
 
 function slaCalcStats(tickets) {
     const total    = tickets.length;
-    const resolved = tickets.filter(t => t.status === 'Resolved');
+    const resolved = tickets.filter(t => isTicketDone(t));
     const withinSLA = resolved.filter(t => slaIsWithinSLA(t));
     const outsideSLA = resolved.length - withinSLA.length;
-    const unresolved = tickets.filter(t => t.status !== 'Resolved');
+    const unresolved = tickets.filter(t => !isTicketDone(t));
+    // ── at-risk: ticket ที่ยังไม่เสร็จ (Open/In Progress) แต่เวลาผ่านเกิน SLA ไปแล้ว ──
+    // นับแบบ real-time เทียบกับเวลาปัจจุบัน จะได้ไม่ต้องรอให้ปิดงานก่อนถึงจะรู้ว่าเกิน SLA
+    const nowMs = Date.now();
+    const atRisk = unresolved.filter(t => {
+        const limit = SLA_HOURS[t.priority] || 72;
+        const hoursElapsed = (nowMs - new Date(t.date).getTime()) / 3600000;
+        return hoursElapsed > limit;
+    });
     const pct = resolved.length > 0 ? Math.round((withinSLA.length / resolved.length) * 100) : null;
-    return { total, resolved: resolved.length, withinSLA: withinSLA.length, outsideSLA, unresolved: unresolved.length, pct };
+    return { total, resolved: resolved.length, withinSLA: withinSLA.length, outsideSLA, unresolved: unresolved.length, atRisk: atRisk.length, pct };
 }
 
 function slaGaugeColor(pct) {
@@ -8907,7 +8939,7 @@ function renderSLAMonth(el, tickets, label) {
     const priColor = { Critical:'#7c3aed', High:'#dc2626', Medium:'#d97706', Low:'#16a34a' };
     const priBreakdown = pris.map(p => {
         const sub = tickets.filter(t => t.priority === p);
-        const res = sub.filter(t => t.status === 'Resolved');
+        const res = sub.filter(t => isTicketDone(t));
         const ok  = res.filter(t => slaIsWithinSLA(t)).length;
         const pct = res.length > 0 ? Math.round(ok / res.length * 100) : null;
         const barW = pct !== null ? pct : 0;
@@ -8928,7 +8960,7 @@ function renderSLAMonth(el, tickets, label) {
     const priPctForWarning = {};
     CRITICAL_PRIORITIES.forEach(p => {
         const sub = tickets.filter(t => t.priority === p);
-        const res = sub.filter(t => t.status === 'Resolved');
+        const res = sub.filter(t => isTicketDone(t));
         const ok  = res.filter(t => slaIsWithinSLA(t)).length;
         priPctForWarning[p] = res.length > 0 ? Math.round(ok / res.length * 100) : null;
     });
@@ -8979,6 +9011,11 @@ function renderSLAMonth(el, tickets, label) {
                     <div style="font-size:1.4rem;font-weight:900;color:#d97706;">${s.unresolved}</div>
                     <div style="font-size:.72rem;color:#64748b;font-weight:600;">รอดำเนินการ</div>
                 </div>
+                ${s.atRisk > 0 ? `
+                <div style="background:#fff1f2;border:1.5px solid #fca5a5;border-radius:10px;padding:8px 14px;text-align:center;flex:1;min-width:80px;">
+                    <div style="font-size:1.4rem;font-weight:900;color:#dc2626;">${s.atRisk} ⚠️</div>
+                    <div style="font-size:.72rem;color:#b91c1c;font-weight:700;">ค้างเกิน SLA อยู่ตอนนี้</div>
+                </div>` : ''}
             </div>
             <!-- priority breakdown -->
             <div style="background:#f8faff;border-radius:10px;padding:.8rem 1rem;border:1px solid #e0eaff;display:flex;flex-direction:column;gap:8px;">
@@ -9136,25 +9173,25 @@ function _artUpdateNavBtns() {
     if (nextBtn) nextBtn.style.opacity = year >= now.getFullYear() ? '0.35' : '1';
 }
 
-// คำนวณ avg resolution hours สำหรับ tickets ที่ Resolved ในปีนั้น
+// คำนวณ avg resolution hours สำหรับ tickets ที่แก้เสร็จแล้วในปีนั้น (Fixed หรือ Resolved)
 function artCalcYear(year) {
     const resolved = adminTickets.filter(t => {
-        if (t.status !== 'Resolved' || !t.resolvedAt) return false;
-        return new Date(t.resolvedAt).getFullYear() === year;
+        if (!isTicketDone(t) || !getDoneAt(t)) return false;
+        return new Date(getDoneAt(t)).getFullYear() === year;
     });
     if (!resolved.length) return { avg: null, count: 0, byMonth: [], byPriority: {} };
 
     const hours = resolved.map(t =>
-        (new Date(t.resolvedAt).getTime() - new Date(t.date).getTime()) / 3600000
+        (new Date(getDoneAt(t)).getTime() - new Date(t.date).getTime()) / 3600000
     );
     const avg = hours.reduce((a, b) => a + b, 0) / hours.length;
 
     // รายเดือน
     const byMonth = Array.from({ length: 12 }, (_, mi) => {
-        const mRes = resolved.filter(t => new Date(t.resolvedAt).getMonth() === mi);
+        const mRes = resolved.filter(t => new Date(getDoneAt(t)).getMonth() === mi);
         if (!mRes.length) return { avg: null, count: 0 };
         const mHrs = mRes.map(t =>
-            (new Date(t.resolvedAt).getTime() - new Date(t.date).getTime()) / 3600000
+            (new Date(getDoneAt(t)).getTime() - new Date(t.date).getTime()) / 3600000
         );
         return { avg: mHrs.reduce((a, b) => a + b, 0) / mHrs.length, count: mRes.length };
     });
@@ -9165,7 +9202,7 @@ function artCalcYear(year) {
         const pRes = resolved.filter(t => t.priority === p);
         if (!pRes.length) { byPriority[p] = null; return; }
         const pHrs = pRes.map(t =>
-            (new Date(t.resolvedAt).getTime() - new Date(t.date).getTime()) / 3600000
+            (new Date(getDoneAt(t)).getTime() - new Date(t.date).getTime()) / 3600000
         );
         byPriority[p] = pHrs.reduce((a, b) => a + b, 0) / pHrs.length;
     });
@@ -9429,8 +9466,8 @@ function isFCR(ticket) {
     const incType = ticket.incidentType || 'Incident'; // default = Incident
     if (!FCR_ELIGIBLE_TYPES.has(incType)) return false;
 
-    // C1: ปิดงานภายใน 8 ชม. นับจากเวลาเปิด ticket
-    const resHrs = (new Date(ticket.resolvedAt) - new Date(ticket.date)) / 3600000;
+    // C1: ปิดงานภายใน 8 ชม. นับจากเวลาเปิด ticket ถึงเวลาที่ IT แก้เสร็จจริง (ไม่รวมเวลารอ user ให้คะแนน)
+    const resHrs = (new Date(getDoneAt(ticket)) - new Date(ticket.date)) / 3600000;
     if (resHrs > FCR_AUTO_HOURS) return false;
 
     // C2: ไม่มีการ Reopen (reopenCount = 0)
@@ -9473,7 +9510,7 @@ function getFCRResult(ticket) {
         return { result:'INELIGIBLE', reasons:['ยังไม่ปิดงาน'] };
     }
     const reasons = [];
-    const resHrs = (new Date(ticket.resolvedAt) - new Date(ticket.date)) / 3600000;
+    const resHrs = (new Date(getDoneAt(ticket)) - new Date(ticket.date)) / 3600000;
     if (resHrs > FCR_AUTO_HOURS) reasons.push(`C1: ใช้เวลา ${resHrs.toFixed(1)} ชม. (เกิน 8 ชม.)`);
     if ((ticket.reopenCount || 0) > 0) reasons.push(`C2: Reopen ${ticket.reopenCount} ครั้ง`);
     if (ticket.lastReopenedAt && ticket.resolvedAt) {
@@ -9796,7 +9833,7 @@ function renderFCRWidget() {
 }
 
 // ===================== RIR WIDGET (Recurring Incident Rate) =====================
-// นิยาม: Ticket ที่เป็น "ซ้ำ" = user+category เดิม เกิดขึ้น ≥ 2 ครั้งในปีเดียวกัน
+// นิยาม: Ticket ที่เป็น "ซ้ำ" = user+category เดิม เคยมีตั๋วก่อนหน้าที่แก้เสร็จแล้ว (Fixed/Resolved) มาก่อนวันที่แจ้งตั๋วนี้
 // RIR% = (จำนวน recurring tickets / total tickets ในปี) × 100
 const RIR_BASE_YEAR  = 2026;  // ค.ศ. 2026 = พ.ศ. 2569
 const RIR_GOAL_REDUCE = 20;   // เป้าหมาย ลดลง ≥ 20% ต่อปี
@@ -9826,17 +9863,24 @@ function rirCalcYear(year) {
     const tickets = adminTickets.filter(t => new Date(t.date).getFullYear() === year);
     if (!tickets.length) return { total: 0, recurring: 0, rate: null, topCategories: [], topDepts: [], recurringDetails: [], byMonth: Array.from({ length: 12 }, () => ({ total: 0, recurring: 0, rate: null })) };
 
-    // นิยาม: "ซ้ำ" = user+category เดิม เกิดขึ้น ≥ 2 ครั้งในปีเดียวกัน
-    // ระบุแต่ละ ticket ว่าเป็น recurring หรือไม่
-    const recurringSet = new Set();
-    const userCatCount = {};
-    tickets.forEach(t => {
+    // นิยาม: "ซ้ำ" (recurring) = ticket ที่ user+category เดิม เคยมีตั๋วก่อนหน้าที่ "แก้ไขเสร็จแล้ว"
+    // (status Fixed หรือ Resolved) มาก่อนวันที่แจ้งตั๋วใบนี้ — คือปัญหาที่เคยคิดว่าแก้แล้วแต่กลับมาเกิดซ้ำ
+    // ตั๋วที่แจ้งซ้ำเพราะเป็นปัญหาเดิมที่ "ยังไม่ถูกแก้" (ยังไม่ Fixed/Resolved) จะไม่ถูกนับเป็น recurring
+    // ค้นหาตั๋วก่อนหน้าจาก adminTickets ทั้งหมด (ไม่จำกัดเฉพาะปีนี้) เผื่อกรณีเกิดข้ามปี
+    const byKey = {};
+    adminTickets.forEach(t => {
         const key = `${_normUser(t.user)}||${t.category}`;
-        userCatCount[key] = (userCatCount[key] || 0) + 1;
+        (byKey[key] || (byKey[key] = [])).push(t);
     });
+    const recurringSet = new Set();
     tickets.forEach(t => {
         const key = `${_normUser(t.user)}||${t.category}`;
-        if (userCatCount[key] >= 2) recurringSet.add(t.id);
+        const createdAt = new Date(t.date).getTime();
+        const hadPriorFix = (byKey[key] || []).some(prev =>
+            prev.id !== t.id && isTicketDone(prev) && getDoneAt(prev) &&
+            new Date(getDoneAt(prev)).getTime() < createdAt
+        );
+        if (hadPriorFix) recurringSet.add(t.id);
     });
 
     const recurringTickets = tickets.filter(t => recurringSet.has(t.id));
@@ -10160,14 +10204,14 @@ function _p1UpdateNavBtns() {
 function p1CalcYear(year) {
     const all  = adminTickets.filter(t => new Date(t.date).getFullYear() === year);
     const p1   = all.filter(t => t.priority === 'High' || t.priority === 'Critical');
-    const resolved = p1.filter(t => t.status === 'Resolved');
+    const resolved = p1.filter(t => isTicketDone(t));
     const open     = p1.filter(t => t.status === 'Open');
     const inProg   = p1.filter(t => t.status === 'In Progress');
 
     // รายเดือน
     const byMonth = Array.from({ length: 12 }, (_, mi) => {
         const m = p1.filter(t => new Date(t.date).getMonth() === mi);
-        return { count: m.length, resolved: m.filter(t => t.status === 'Resolved').length };
+        return { count: m.length, resolved: m.filter(t => isTicketDone(t)).length };
     });
 
     // top categories ของ P1
@@ -10182,7 +10226,7 @@ function p1CalcYear(year) {
     p1.filter(t => t.assignee).forEach(t => {
         if (!assigneeMap[t.assignee]) assigneeMap[t.assignee] = { total: 0, resolved: 0 };
         assigneeMap[t.assignee].total++;
-        if (t.status === 'Resolved') assigneeMap[t.assignee].resolved++;
+        if (isTicketDone(t)) assigneeMap[t.assignee].resolved++;
     });
     const topAssignees = Object.entries(assigneeMap)
         .sort((a, b) => b[1].total - a[1].total).slice(0, 5)
@@ -10450,11 +10494,25 @@ function wlcCalcData() {
         map[key].total++;
         if (t.priority === 'Critical') map[key].critical++; else map[key].high++;
     });
-    const rows = Object.entries(map).map(([name, v]) => ({
-        name: name === '__unassigned__' ? null : name,
-        ...v,
-        pct: total > 0 ? Math.round(v.total / total * 100) : 0
-    })).sort((a, b) => b.total - a.total);
+    // FCR ต่อคน (จากตั๋ว Critical/High ทั้งหมดที่เคยรับผิดชอบ ไม่จำกัดช่วงเวลา)
+    // ใช้ประกอบการตัดสินใจว่าควรกระจายงานไปให้ใคร (คนที่ FCR สูงกว่า = ปิดงานได้ดีตั้งแต่ครั้งแรก)
+    const rows = Object.entries(map).map(([name, v]) => {
+        const isUnassigned = name === '__unassigned__';
+        let fcrPct = null, fcrCount = 0;
+        if (!isUnassigned) {
+            const staffP1Tickets = adminTickets.filter(t =>
+                t.assignee === name && (t.priority === 'High' || t.priority === 'Critical') && isFCREligible(t)
+            );
+            fcrCount = staffP1Tickets.length;
+            fcrPct = fcrCount > 0 ? Math.round(staffP1Tickets.filter(t => isFCR(t)).length / fcrCount * 100) : null;
+        }
+        return {
+            name: isUnassigned ? null : name,
+            ...v,
+            pct: total > 0 ? Math.round(v.total / total * 100) : 0,
+            fcrPct, fcrCount
+        };
+    }).sort((a, b) => b.total - a.total);
     const flagged = rows.filter(r => r.name && r.pct > WLC_THRESHOLD);
     return { total, rows, flagged };
 }
@@ -10498,6 +10556,10 @@ function renderWLCWidget() {
         const displayName = r.name || 'ยังไม่มอบหมาย';
         const barColor = isFlagged ? '#dc2626' : '#c2410c';
         const barW = Math.round(r.total / maxTotal * 100);
+        const fcrColorFor = pct => pct === null ? '#94a3b8' : pct >= FCR_GOAL ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
+        const fcrBadge = r.name
+            ? `<span style="font-size:.7rem;font-weight:800;color:${fcrColorFor(r.fcrPct)};background:${r.fcrPct===null?'#f1f5f9':r.fcrPct>=FCR_GOAL?'#f0fdf4':r.fcrPct>=50?'#fefce8':'#fef2f2'};border:1px solid ${r.fcrPct===null?'#e2e8f0':r.fcrPct>=FCR_GOAL?'#bbf7d0':r.fcrPct>=50?'#fde68a':'#fecaca'};padding:2px 7px;border-radius:20px;white-space:nowrap;" title="FCR (First Call Resolution) จากตั๋วด่วนมาก/Critical ที่เคยรับผิดชอบทั้งหมด">FCR ${r.fcrPct !== null ? r.fcrPct + '%' : 'N/A'}</span>`
+            : '';
         return `
         <div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;${isFlagged ? 'background:#fef2f2;' : ''}">
             <div style="width:26px;height:26px;border-radius:50%;background:${avBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -10510,11 +10572,31 @@ function renderWLCWidget() {
             </div>
             <span style="font-size:.8rem;font-weight:900;color:${isFlagged ? '#dc2626' : '#334155'};min-width:40px;text-align:right;">${r.pct}%</span>
             <span style="font-size:.72rem;color:#94a3b8;min-width:100px;">${r.total} รายการ (🔴${r.critical} 🟠${r.high})</span>
+            ${fcrBadge}
         </div>`;
     }).join('');
 
+    // ── ข้อเสนอแนะกระจายงาน: หาเพื่อนร่วมทีมที่ FCR สูงกว่าและมีที่ว่างมากกว่า ให้คนที่ถืองานเกินเกณฑ์ ──
+    const suggestions = flagged.map(f => {
+        const candidates = rows.filter(r =>
+            r.name && r.name !== f.name && r.pct < f.pct &&
+            r.fcrPct !== null && (f.fcrPct === null || r.fcrPct > f.fcrPct)
+        ).sort((a, b) => b.fcrPct - a.fcrPct).slice(0, 2);
+        return candidates.length ? { from: f, to: candidates } : null;
+    }).filter(Boolean);
+    const suggestionBanner = suggestions.length
+        ? `<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-size:.78rem;font-weight:800;color:#1d4ed8;margin-bottom:4px;">💡 ข้อเสนอแนะกระจายงาน</div>
+            ${suggestions.map(s => `<div style="font-size:.75rem;color:#1e40af;margin-top:2px;">
+                พิจารณาย้ายงานบางส่วนจาก <strong>${s.from.name}</strong> (FCR ${s.from.fcrPct !== null ? s.from.fcrPct+'%' : 'N/A'}) ไปยัง
+                ${s.to.map(c => `<strong>${c.name}</strong> (FCR ${c.fcrPct}%)`).join(' หรือ ')}
+            </div>`).join('')}
+        </div>`
+        : '';
+
     el.innerHTML = `
         ${alertBanner}
+        ${suggestionBanner}
         <div style="margin-bottom:6px;">
             <span style="font-size:.78rem;font-weight:800;color:#334155;">การกระจาย ticket ด่วนมาก/Critical ที่ยังไม่ปิด ตามผู้รับผิดชอบ (รวม ${total} รายการ)</span>
         </div>
@@ -11164,10 +11246,10 @@ function tpCalcStaff() {
             ensureStaff(name);
             const s = staffMap[name];
             s.assigned++;
-            if (t.status === 'Resolved') {
+            if (isTicketDone(t)) {
                 s.resolved++;
-                if (t.resolvedAt) {
-                    const h = (new Date(t.resolvedAt) - new Date(t.date)) / 3600000;
+                if (getDoneAt(t)) {
+                    const h = (new Date(getDoneAt(t)) - new Date(t.date)) / 3600000;
                     s.hours.push(h);
                     s.slaTotal++;
                     if (slaIsWithinSLA(t)) s.slaOk++;
