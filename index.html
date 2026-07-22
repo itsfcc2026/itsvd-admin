@@ -9783,23 +9783,20 @@ function _rirUpdateNavBtns() {
 
 function rirCalcYear(year) {
     const tickets = adminTickets.filter(t => new Date(t.date).getFullYear() === year);
-    if (!tickets.length) return { total: 0, recurring: 0, rate: null, topCategories: [], topUsers: [], byMonth: Array.from({ length: 12 }, () => ({ total: 0, recurring: 0, rate: null })) };
+    if (!tickets.length) return { total: 0, recurring: 0, rate: null, topCategories: [], topDepts: [], recurringDetails: [], byMonth: Array.from({ length: 12 }, () => ({ total: 0, recurring: 0, rate: null })) };
 
-    // นิยามใหม่: "ซ้ำ" = category เดิมเกิดขึ้น ≥ 2 ครั้งในเดือนเดียวกัน (ปัญหาซ้ำระดับระบบ)
+    // นิยาม: "ซ้ำ" = user+category เดิม เกิดขึ้น ≥ 2 ครั้งในปีเดียวกัน
     // ระบุแต่ละ ticket ว่าเป็น recurring หรือไม่
     const recurringSet = new Set();
-    // จัดกลุ่มตามเดือน
-    for (let mi = 0; mi < 12; mi++) {
-        const mTickets = tickets.filter(t => new Date(t.date).getMonth() === mi);
-        if (mTickets.length < 2) continue;
-        // นับความถี่ category ในเดือนนั้น
-        const catCount = {};
-        mTickets.forEach(t => { catCount[t.category] = (catCount[t.category] || 0) + 1; });
-        // tickets ที่ category มี ≥ 2 ครั้งในเดือนนั้น = recurring
-        mTickets.forEach(t => {
-            if (catCount[t.category] >= 2) recurringSet.add(t.id);
-        });
-    }
+    const userCatCount = {};
+    tickets.forEach(t => {
+        const key = `${_normUser(t.user)}||${t.category}`;
+        userCatCount[key] = (userCatCount[key] || 0) + 1;
+    });
+    tickets.forEach(t => {
+        const key = `${_normUser(t.user)}||${t.category}`;
+        if (userCatCount[key] >= 2) recurringSet.add(t.id);
+    });
 
     const recurringTickets = tickets.filter(t => recurringSet.has(t.id));
     const rate = Math.round(recurringTickets.length / tickets.length * 100);
@@ -9823,6 +9820,24 @@ function rirCalcYear(year) {
         .slice(0, 3)
         .map(([dept, cnt]) => ({ dept, cnt }));
 
+    // รายละเอียดปัญหาซ้ำ: ใครแจ้ง / ฝ่ายไหน / เรื่องอะไร (group ตาม user+category เดิม)
+    const groupMap = {};
+    recurringTickets.forEach(t => {
+        const key = `${_normUser(t.user)}||${t.category}`;
+        if (!groupMap[key]) {
+            groupMap[key] = {
+                user: t.user || '(ไม่ระบุผู้แจ้ง)',
+                dept: (t.dept && t.dept !== '-') ? t.dept : '(ไม่ระบุฝ่าย)',
+                category: t.category,
+                count: 0,
+                lastDate: t.date
+            };
+        }
+        groupMap[key].count++;
+        if (new Date(t.date) > new Date(groupMap[key].lastDate)) groupMap[key].lastDate = t.date;
+    });
+    const recurringDetails = Object.values(groupMap).sort((a, b) => b.count - a.count || new Date(b.lastDate) - new Date(a.lastDate));
+
     // รายเดือน — rate recurring ต่อเดือน
     const byMonth = Array.from({ length: 12 }, (_, mi) => {
         const mTickets = tickets.filter(t => new Date(t.date).getMonth() === mi);
@@ -9831,7 +9846,7 @@ function rirCalcYear(year) {
         return { total: mTickets.length, recurring: mRec, rate: Math.round(mRec / mTickets.length * 100) };
     });
 
-    return { total: tickets.length, recurring: recurringTickets.length, rate, topCategories, topDepts, byMonth };
+    return { total: tickets.length, recurring: recurringTickets.length, rate, topCategories, topDepts, recurringDetails, byMonth };
 }
 
 function rirColor(changePct) {
@@ -9973,6 +9988,19 @@ function renderRIRWidget() {
         }).join('')
         : `<tr><td colspan="2" style="padding:1rem;text-align:center;color:#94a3b8;font-size:.82rem;">ไม่มีข้อมูล</td></tr>`;
 
+    // ── รายละเอียดปัญหาซ้ำ: ผู้แจ้ง / ฝ่าย / เรื่องที่ซ้ำ ────────────────────
+    const detailRows = curr.recurringDetails.length
+        ? curr.recurringDetails.map(d => `
+            <tr style="border-bottom:1px solid #fef3c7;">
+                <td style="padding:7px 10px;font-size:.8rem;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;" title="${d.user}">${d.user}</td>
+                <td style="padding:7px 10px;font-size:.8rem;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;" title="${d.dept}">${d.dept}</td>
+                <td style="padding:7px 10px;font-size:.8rem;color:#475569;">${getCatLabel(d.category)}</td>
+                <td style="padding:7px 10px;text-align:center;">
+                    <span style="font-size:.78rem;font-weight:800;color:#b45309;background:#fef3c7;padding:2px 10px;border-radius:6px;white-space:nowrap;">${d.count} ครั้ง</span>
+                </td>
+            </tr>`).join('')
+        : `<tr><td colspan="4" style="padding:1rem;text-align:center;color:#94a3b8;font-size:.82rem;">ไม่มีข้อมูลปัญหาซ้ำ</td></tr>`;
+
     // ── render ─────────────────────────────────────────────────────────────
     el.innerHTML = `
     <div style="display:grid;grid-template-columns:auto 1fr;gap:1.4rem;align-items:stretch;margin-bottom:1.2rem;">
@@ -10038,6 +10066,25 @@ function renderRIRWidget() {
                             </tr>
                         </thead>
                         <tbody>${deptRows}</tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- รายละเอียดปัญหาซ้ำ: ใครแจ้ง / ฝ่ายไหน / เรื่องอะไร -->
+            <div style="border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;">
+                <div style="background:#fffbeb;padding:6px 10px;border-bottom:2px solid #fde68a;">
+                    <span style="font-size:.68rem;font-weight:800;color:#334155;">📝 รายละเอียดปัญหาซ้ำ — ผู้แจ้ง / ฝ่าย / เรื่องที่ซ้ำ — ปี ${yearTH}</span>
+                </div>
+                <div style="max-height:260px;overflow-y:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8faff;position:sticky;top:0;">
+                                <th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">ผู้แจ้ง</th>
+                                <th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">ฝ่าย</th>
+                                <th style="padding:6px 10px;text-align:left;font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">เรื่องที่ซ้ำ</th>
+                                <th style="padding:6px 10px;text-align:center;font-size:.65rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">จำนวนครั้ง</th>
+                            </tr>
+                        </thead>
+                        <tbody>${detailRows}</tbody>
                     </table>
                 </div>
             </div>
