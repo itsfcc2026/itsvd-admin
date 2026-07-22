@@ -2764,7 +2764,6 @@
                                 <span style="font-size:1rem;font-weight:800;color:#1e293b;letter-spacing:.1px;" data-i18n="adm_chart_closed">งานปิดตามความเร่งด่วน</span>
                             </div>
                             <div id="chart-closed" style="display:flex;flex-direction:column;gap:0;flex:1;justify-content:space-around;"></div>
-                            <canvas id="canvas-priority-bar" width="260" height="80" style="display:block;margin-top:.8rem;width:100%;height:80px;flex-shrink:0;"></canvas>
                         </div>
 
                     </div>
@@ -6623,43 +6622,6 @@ function drawGauge(canvas, pct) {
     ctx.fillText(pct + '%', cx, cy - 4);
 }
 
-function drawPriorityBars(canvas, low, med, high) {
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    ctx.clearRect(0,0,W,H);
-    const items = [
-        { label:'Low', value:low, color:'#93c5fd' },
-        { label:'Medium', value:med, color:'#4A7C8A' },
-        { label:'High', value:high, color:'#2C4A52' },
-    ];
-    const max = Math.max(low, med, high, 1);
-    const barW = (W - 60) / items.length;
-    const maxH = H - 30;
-    items.forEach((it, i) => {
-        const bh = Math.max((it.value / max) * maxH, 2);
-        const x = 30 + i * barW + barW*0.15;
-        const bww = barW * 0.6;
-        const y = maxH - bh;
-        // bar bg
-        const grad = ctx.createLinearGradient(0, y, 0, maxH);
-        grad.addColorStop(0, it.color);
-        grad.addColorStop(1, it.color + '88');
-        ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(x, y, bww, bh, [4,4,0,0]) : ctx.rect(x, y, bww, bh);
-        ctx.fillStyle = grad;
-        ctx.fill();
-        // label
-        ctx.fillStyle = '#64748b';
-        ctx.font = '10px Sarabun,sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(it.label, x + bww/2, H - 5);
-        // value
-        ctx.fillStyle = '#2C4A52';
-        ctx.font = 'bold 11px Sarabun,sans-serif';
-        ctx.fillText(it.value, x + bww/2, y - 5);
-    });
-}
-
 function renderChartStatus(open, prog, done) {
     const canvas = document.getElementById('canvas-donut');
     const legend = document.getElementById('donut-legend');
@@ -6701,7 +6663,6 @@ function renderChartCategory() {
 
 function renderChartClosed(done) {
     const el = document.getElementById('chart-closed');
-    const cvs = document.getElementById('canvas-priority-bar');
     const resolved = adminTickets.filter(t => t.status === 'Resolved');
     const byPriority = { Low:0, Medium:0, High:0, Critical:0 };
     resolved.forEach(t => { if (byPriority[t.priority] !== undefined) byPriority[t.priority]++; });
@@ -6712,7 +6673,6 @@ function renderChartClosed(done) {
         makeBar(i18n[currentLang].adm_pri_high, byPriority.High,     max, '#f87171'),
         makeBar(i18n[currentLang].adm_pri_crit, byPriority.Critical, max, '#c084fc'),
     ].join('');
-    if (cvs) drawPriorityBars(cvs, byPriority.Low, byPriority.Medium, byPriority.High, byPriority.Critical);
 }
 
 function renderChartEfficiency(total, done, open, prog, eff) {
