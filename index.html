@@ -5205,7 +5205,7 @@ function updateHomeStats() {
     const tickets = _filterForCurrentUser(adminTickets.length > 0 ? adminTickets : (JSON.parse(localStorage.getItem(TICKETS_KEY)) || []));
     const total = tickets.length;
     const open = tickets.filter(t => t.status === 'Open').length;
-    const resolved = tickets.filter(t => t.status === 'Resolved').length;
+    const resolved = tickets.filter(t => isTicketDone(t)).length;
     const elTotal = document.getElementById('home-stat-total');
     const elOpen = document.getElementById('home-stat-open');
     const elResolved = document.getElementById('home-stat-resolved');
@@ -6291,7 +6291,7 @@ function toggleUnratedFilter() {
 }
 
 function updateUserBadge() {
-    const active = userTickets.filter(t => t.status !== 'Resolved').length;
+    const active = userTickets.filter(t => !isTicketDone(t)).length;
     const nb = document.getElementById('nav-badge-count');
     const cb = document.getElementById('card-badge-count');
     if (nb) { nb.innerText = active; nb.style.display = active > 0 ? 'inline-block' : 'none'; }
@@ -6300,7 +6300,7 @@ function updateUserBadge() {
     // อัปเดต hero stats
     const total = userTickets.length;
     const open  = userTickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
-    const done  = userTickets.filter(t => t.status === 'Resolved').length;
+    const done  = userTickets.filter(t => isTicketDone(t)).length;
     const elTotal = document.getElementById('hero-stat-total');
     const elOpen  = document.getElementById('hero-stat-open');
     const elDone  = document.getElementById('hero-stat-done');
@@ -6465,7 +6465,7 @@ function updateAdminStats() {
     const total = adminTickets.length;
     const open  = adminTickets.filter(t => t.status === 'Open').length;
     const prog  = adminTickets.filter(t => t.status === 'In Progress').length;
-    const done  = adminTickets.filter(t => t.status === 'Resolved').length;
+    const done  = adminTickets.filter(t => isTicketDone(t)).length;
     const eff   = total > 0 ? Math.round((done / total) * 100) : 0;
 
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
@@ -6663,7 +6663,7 @@ function renderChartCategory() {
 
 function renderChartClosed(done) {
     const el = document.getElementById('chart-closed');
-    const resolved = adminTickets.filter(t => t.status === 'Resolved');
+    const resolved = adminTickets.filter(t => isTicketDone(t));
     const byPriority = { Low:0, Medium:0, High:0, Critical:0 };
     resolved.forEach(t => { if (byPriority[t.priority] !== undefined) byPriority[t.priority]++; });
     const max = done || 1;
@@ -7716,7 +7716,7 @@ function adminRenderAllTickets() {
     if (window.innerWidth <= 768) {
         const openCount     = adminTickets.filter(t => t.status === 'Open').length;
         const progressCount = adminTickets.filter(t => t.status === 'In Progress').length;
-        const resolvedCount = adminTickets.filter(t => t.status === 'Resolved').length;
+        const resolvedCount = adminTickets.filter(t => isTicketDone(t)).length;
         const unassigned    = adminTickets.filter(t => t.status === 'Open' && (!t.assignee || !t.assignee.trim())).length;
         const mqsOpen     = document.getElementById('mqs-open');
         const mqsProgress = document.getElementById('mqs-progress');
@@ -11227,7 +11227,7 @@ function tpCalcStaff() {
                 ensureStaff(secName);
                 const ss = staffMap[secName];
                 ss.secondaryCount++;
-                if (t.status === 'Resolved') ss.secondaryResolved++;
+                if (isTicketDone(t)) ss.secondaryResolved++;
             });
         }
     });
@@ -11255,8 +11255,8 @@ function renderTeamPerformance() {
     const since = tpGetRange();
     const allInRange = adminTickets.filter(t => new Date(t.date).getTime() >= since);
     const totalAssigned = allInRange.filter(t => t.assignee).length;
-    const totalResolved = allInRange.filter(t => t.status === 'Resolved').length;
-    const totalPending  = allInRange.filter(t => t.status !== 'Resolved').length;
+    const totalResolved = allInRange.filter(t => isTicketDone(t)).length;
+    const totalPending  = allInRange.filter(t => !isTicketDone(t)).length;
     const totalCrit     = allInRange.filter(t => t.priority === 'Critical' || t.priority === 'High').length;
 
     const kpiCards = [
