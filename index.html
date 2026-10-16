@@ -6901,7 +6901,7 @@ var TICKET_COLS = [
   'category','desc','priority','status','adminNote','assignee',
   'ticketType','incidentType','rating','fcr','userConfirmed',
   'reopenCount','assignCount','secondarySupport','escalated','escalateTo',
-  'notUrgent','notUrgentReason','fixedAt'
+  'notUrgent','notUrgentReason','fixedAt','autoClosed'
 ];
 
 function getTicketSheet() {
@@ -6910,8 +6910,101 @@ function getTicketSheet() {
   if (!sh) {
     sh = ss.insertSheet(SHEET_TICKETS);
     sh.appendRow(TICKET_COLS);
+  } else if (sh.getLastColumn() < TICKET_COLS.length) {
+    // เพิ่มหัวคอลัมน์ใหม่ (เช่น autoClosed) ให้ชีตเดิมอัตโนมัติ
+    sh.getRange(1, 1, 1, TICKET_COLS.length).setValues([TICKET_COLS]);
   }
   return sh;
+}
+
+// ══════════════════════════════════════════════════════════════
+// AUTO-CLOSE: Fixed ที่ผู้แจ้งไม่ให้คะแนนเกิน 1 ชม. → Resolved + 5 ดาว
+//   • นับเฉพาะงานที่ fixedAt >= เวลาที่รัน setupAutoCloseTrigger()
+//   • รันตัวนี้ 1 ครั้งจาก Apps Script editor เพื่อเปิดใช้งาน
+// ══════════════════════════════════════════════════════════════
+var AUTO_CLOSE_MS   = 60 * 60 * 1000;
+var PROP_AUTO_CLOSE = 'AUTOCLOSE_ENABLED_AT';
+
+function setupAutoCloseTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoCloseFixedTickets') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('autoCloseFixedTickets').timeBased().everyMinutes(5).create();
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty(PROP_AUTO_CLOSE)) {
+    props.setProperty(PROP_AUTO_CLOSE, new Date().toISOString());
+  }
+  Logger.log('Auto-close enabled from ' + props.getProperty(PROP_AUTO_CLOSE));
+}
+
+function removeAutoCloseTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'autoCloseFixedTickets') ScriptApp.deleteTrigger(t);
+  });
+  PropertiesService.getScriptProperties().deleteProperty(PROP_AUTO_CLOSE);
+}
+
+function autoCloseFixedTickets() {
+  var enabledRaw = PropertiesService.getScriptProperties().getProperty(PROP_AUTO_CLOSE);
+  if (!enabledRaw) return;
+  var enabledAt = new Date(enabledRaw).getTime();
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return;
+  try {
+    var sh = getTicketSheet();
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) return;
+    var data = sh.getRange(2, 1, lastRow - 1, TICKET_COLS.length).getValues();
+    var iStatus = TICKET_COLS.indexOf('status');
+    var iRating = TICKET_COLS.indexOf('rating');
+    var iFixed  = TICKET_COLS.indexOf('fixedAt');
+    var iResAt  = TICKET_COLS.indexOf('resolvedAt');
+    var iConf   = TICKET_COLS.indexOf('userConfirmed');
+    var iAuto   = TICKET_COLS.indexOf('autoClosed');
+    var now = Date.now();
+    var nowIso = new Date(now).toISOString();
+    var closed = [];
+
+    data.forEach(function(r, n) {
+      if (!r[0] || r[iStatus] !== 'Fixed') return;
+      if (Number(r[iRating]) > 0) return;
+      if (!r[iFixed]) return;
+      var fixedMs = new Date(r[iFixed]).getTime();
+      if (isNaN(fixedMs) || fixedMs < enabledAt) return;
+      if (now - fixedMs < AUTO_CLOSE_MS) return;
+      var rowNum = n + 2;
+      // เขียนเฉพาะคอลัมน์ที่เกี่ยวข้อง เพื่อไม่ทับข้อมูลอื่นที่อาจเพิ่งแก้ไข
+      sh.getRange(rowNum, iStatus + 1).setValue('Resolved');
+      sh.getRange(rowNum, iRating + 1).setValue(5);
+      if (!r[iResAt]) sh.getRange(rowNum, iResAt + 1).setValue(nowIso);
+      sh.getRange(rowNum, iConf + 1).setValue(true);
+      sh.getRange(rowNum, iAuto + 1).setValue(true);
+      closed.push(r[0]);
+    });
+
+    if (closed.length > 0) {
+      Logger.log('Auto-closed: ' + closed.join(', '));
+      try {
+        var props = PropertiesService.getScriptProperties();
+        var botToken = props.getProperty('TG_BOT_TOKEN') || '';
+        var chatId   = props.getProperty('TG_CHAT_ID')   || '';
+        if (botToken && chatId) {
+          UrlFetchApp.fetch('https://api.telegram.org/bot' + botToken + '/sendMessage', {
+            method: 'post',
+            contentType: 'application/json',
+            payload: JSON.stringify({
+              chat_id: chatId,
+              text: 'ปิดงานอัตโนมัติ (ผู้แจ้งไม่ให้คะแนนภายใน 1 ชม.) ให้ 5 ดาว: ' + closed.join(', ')
+            }),
+            muteHttpExceptions: true
+          });
+        }
+      } catch(tgErr) {}
+    }
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function sheetGetTickets() {
